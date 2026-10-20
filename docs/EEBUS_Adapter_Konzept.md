@@ -153,3 +153,8 @@ Befehlstopics (Grundsatz „Lesen vor Schreiben“ bleibt technisch durchgesetzt
   `eebus` in der Analysephase (keine „kein Mapping“-Meldungen).
 - `*.local` wird im Container nicht per mDNS aufgelöst → feste Zuordnung `extra_hosts` auf 192.168.0.176;
   **DHCP-Reservierung für den VR 940 in der FritzBox anlegen**, sonst bricht die Zuordnung bei IP-Wechsel.
+
+**20.10.2026, 19:20 – Kopplung bestätigt, Stufe A vollständig:** Verbindung steht (auch nach Neustart sofort wieder).
+Zusätzlich zu MPC/MDT liest und abonniert der Adapter alle lesbaren Features (Measurement, Setpoint, HVAC,
+DeviceDiagnosis, DeviceClassification, ElectricalConnection, LoadControl, DeviceConfiguration) – **nur lesend**,
+ohne Binding und ohne weitere Anwendungsfälle. Ergebnis und erste Werte: `EEBUS_Datenanalyse.md`.
