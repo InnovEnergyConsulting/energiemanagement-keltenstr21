@@ -1,0 +1,13 @@
+# Shelly-Geräteinventar (Leitstand, Reiter "Steuerung Shelly")
+# Gefunden per mDNS (_shelly._tcp) am 20.10.2026. Noch NICHT eingebunden (Phase 5 lesend, Phase 8 schaltend).
+# Bitte ergänzen: zweck (z. B. "Gartenhaus Licht") und stromkreis – erscheint dann im Leitstand.
+geraete:
+  - {name: shellypro1-34987aa76c8c,   modell: Shelly Pro 1,    ip: 192.168.0.190, firmware: "1.7.5", zweck: null, stromkreis: null}
+  - {name: shellypro1-34987aa798fc,   modell: Shelly Pro 1,    ip: 192.168.0.127, firmware: null,    zweck: null, stromkreis: null}
+  - {name: shellypro1-8c4f00d8fd68,   modell: Shelly Pro 1,    ip: 192.168.0.147, firmware: null,    zweck: null, stromkreis: null}
+  - {name: shellypro1-8c4f00d8feb8,   modell: Shelly Pro 1,    ip: 192.168.0.193, firmware: null,    zweck: null, stromkreis: null}
+  - {name: shellypro1-8c4f00d914c4,   modell: Shelly Pro 1,    ip: 192.168.0.186, firmware: "2.0.0", zweck: null, stromkreis: null}
+  - {name: shellypro1-ac15186be140,   modell: Shelly Pro 1,    ip: 192.168.0.189, firmware: null,    zweck: null, stromkreis: null}
+  - {name: shellypro1pm-8813bfda5e48, modell: Shelly Pro 1PM,  ip: 192.168.0.148, firmware: "1.4.0", zweck: null, stromkreis: null}
+  - {name: shellypro1pm-8813bfda92c0, modell: Shelly Pro 1PM,  ip: 192.168.0.124, firmware: null,    zweck: null, stromkreis: null}
+  - {name: shellypro1pm-ec62608c16fc, modell: Shelly Pro 1PM,  ip: 192.168.0.197, firmware: "2.0.0", zweck: null, stromkreis: null}

@@ -129,12 +129,39 @@ services:
     logging: *logging
     mem_limit: 64m
     ports:
-      - "192.168.0.172:8443:8443"
+      - "192.168.0.172:8443:8443"   # Grafana (Analysen)
+      - "192.168.0.172:8444:8444"   # Leitstand (eigene Oberfläche, parallel zu Grafana)
     volumes:
       - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data/caddy:/data
-    depends_on: [grafana]
+    depends_on: [grafana, leitstand]
     networks: [frontend]
+
+  # ---------------------------------------------------------------- Leitstand (nur lesend)
+  # Eigene Oberfläche mit Reitern FB / WP / Shelly und Statuszeile; Gestaltung docs/design/Dashboard-Entwurf.html.
+  # Liest InfluxDB mit eigenem Lese-Token, kein schreibender Pfad. Erreichbar über Caddy: https://192.168.0.172:8444/
+  leitstand:
+    <<: *ems-core
+    container_name: ems-leitstand
+    command: ["leitstand"]
+    mem_limit: 128m
+    environment:
+      TZ: Europe/Berlin
+      EMS_SECRETS_DIR: /run/ems-secrets
+      EMS_INFLUX_URL: http://influxdb:8086
+      EMS_INFLUX_ORG: keltenstr21
+      EMS_SHELLY_INVENTORY: /app/inventory/shelly.yaml
+    volumes:
+      - ./secrets/influx-tokens/leitstand_token:/run/ems-secrets/influx-tokens/leitstand_token:ro
+      - ./inventory:/app/inventory:ro
+    depends_on:
+      influxdb: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [backend, frontend]
 
   # ---------------------------------------------------------------- Eigenentwicklung (ems-core)
   controme-adapter:

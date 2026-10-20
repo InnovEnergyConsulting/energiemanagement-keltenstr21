@@ -9,8 +9,8 @@ OK, HINWEIS, STOERUNG, GEPLANT, UNBEKANNT = "ok", "hinweis", "stoerung", "geplan
 RANK = {OK: 0, GEPLANT: 0, UNBEKANNT: 1, HINWEIS: 1, STOERUNG: 2}
 
 # Grenzwerte (Sekunden bzw. Kelvin)
-ROOM_SENSOR_HINWEIS_S = 30 * 60        # Controme-Raumfühler senden alle paar Minuten
-ROOM_SENSOR_STOERUNG_S = 6 * 3600
+ROOM_SENSOR_HINWEIS_S = 6 * 3600       # Funkfühler senden nur bei Änderung: Pausen > 3 h gemessen (20.10.2026)
+ROOM_SENSOR_STOERUNG_S = 24 * 3600
 CONTROME_POLL_HINWEIS_S = 3 * 60       # Adapter fragt jede Minute ab
 CONTROME_POLL_STOERUNG_S = 10 * 60
 PIPELINE_HINWEIS_S = 5 * 60            # jüngster geschriebener Messwert
@@ -20,7 +20,6 @@ BACKUP_HINWEIS_S = 26 * 3600
 BACKUP_STOERUNG_S = 50 * 3600
 RESTORE_HINWEIS_S = 35 * 86400
 IM_SOLL_K = 0.5
-QUALITY_RECENT_S = 30 * 60
 
 MODE_DE = {"auto": "Automatik", "on": "Ein", "off": "Aus", "Heating": "Heizen", "Cooling": "Kühlen"}
 
@@ -99,7 +98,7 @@ def fb_view(now: datetime, latest: list[dict], states: dict) -> dict:
     flow = _latest(latest, source="controme", medium="heat", role="flow_actual")
     flow_soll = _latest(latest, source="controme", medium="heat", role="flow_setpoint")
 
-    hinweise = [f"{x['name']}: Fühler meldet seit {int(x['alter_s'] // 60)} min nichts"
+    hinweise = [f"{x['name']}: Fühler meldet seit {x['alter_s'] / 3600:.0f} h nichts"
                 for x in rows if x["stufe"] in (HINWEIS, STOERUNG)]
     return {
         "kennzahlen": {
@@ -118,6 +117,8 @@ def fb_view(now: datetime, latest: list[dict], states: dict) -> dict:
 
 # --------------------------------------------------------------------------------- Reiter 2: Wärmepumpe
 def wp_view(now: datetime, latest: list[dict], states: dict, availability: dict, quality: list[dict]) -> dict:
+    """quality: Qualitätsmeldungen der letzten Tage. Der Normalizer meldet jeden Fehler nur einmal je Laufzeit –
+    eine Fühlerstörung gilt daher, solange danach kein gültiger Wert kam."""
     def tel(asset, quantity):
         rec = _latest(latest, source="eebus", asset_id=asset, quantity=quantity)
         return None if rec is None else {"wert": rec["value"], "alter_s": age_s(now, rec["time"]),

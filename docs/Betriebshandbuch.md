@@ -9,6 +9,7 @@ Konzept: `Umsetzungskonzept.md` · Anforderungen: `Anforderungen.md` · Vaillant
 
 | Was | Adresse | Anmeldung |
 |---|---|---|
+| **Leitstand** (Tagesbetrieb: Reiter FB / WP / Shelly, Statuszeile) | https://192.168.0.172:8444/ | ohne Anmeldung, nur lesend (LAN) |
 | Grafana (Auswertung) | https://192.168.0.172:8443/grafana/ | Benutzer `admin`, Passwort in `secrets/grafana_admin_password` |
 | Dashboard „Heizung – Räume (Controme)“ | Ordner *Energiemanagement* | – |
 | Dashboard „Wärmepumpe (Vaillant)“ | Ordner *Energiemanagement* (EEBUS über VR 940) | – |
@@ -88,6 +89,32 @@ docker exec ems-mosquitto mosquitto_sub -h localhost -u ems_admin -P "$(cat secr
 ```
 
 ---
+
+### Leitstand (seit 20.10.2026)
+
+Eigene Oberfläche (Container `ems-leitstand`, Rolle `leitstand` im ems-core-Image, Code `ems-core/ems/leitstand/`),
+Gestaltung nach `docs/design/Dashboard-Entwurf.html` (ISA-101: grau = normal, Farbe nur bei Abweichung).
+Läuft **parallel** zu Grafana auf eigenem Port 8444; liest InfluxDB mit eigenem Lese-Token
+(`secrets/influx-tokens/leitstand_token`), hat keinen schreibenden Pfad.
+
+| Statuszeile | Hinweis (Raute) | Störung (Quadrat) |
+|---|---|---|
+| Datenfluss | jüngster Messwert > 5 min | > 15 min oder Normalizer nicht online |
+| Fußbodenheizung | ein Raumfühler schweigt > 6 h (Funkfühler senden nur bei Änderung) | Controme-Abruf > 10 min alt, Fehlerstatus, Fühler > 24 h |
+| Wärmepumpe | Außenfühler „error“, Leistungswert > 15 min alt | EEBUS-Verbindung nicht online |
+| Sicherung | Wiederherstellungstest > 35 Tage oder fehlgeschlagen | USB-Sicherung > 50 h alt oder fehlgeschlagen |
+
+Bedienung: Klick auf eine Raumzeile öffnet das **Raum-Detailfenster** (Ist/Soll, zugeordnete Rückläufe, Feuchte).
+Alle Verläufe haben die Zeitspannen 30 min, 60 min, 180 min, 6 h, 12 h, 24 h, 7 Tage, 30 Tage (Auswahl wird je
+Bereich im Browser gemerkt). Fühler, die nur bei Änderung senden (Controme-Raumfühler, EEBUS), werden als Stufen
+gezeichnet und bis 6 h ab dem letzten Wert fortgeführt – auch vom letzten Wert vor Beginn der Spanne; längere
+Pausen bleiben als Lücke sichtbar. Ein stufenloser Schieberegler (1 min – 30 Tage) wurde geprüft und verworfen
+(siehe Entscheidung vom 20.10.2026 im Chat: feste Stufen sind reproduzierbar, feiner als die Messrate sinnlos).
+
+Shelly-Geräte stehen in `inventory/shelly.yaml` (mDNS-Fund 20.10.2026). Dort `zweck` und `stromkreis` ergänzen,
+dann erscheinen sie im Reiter. Grenzwerte: `ems-core/ems/leitstand/views.py`. Nach Code-Änderungen:
+`docker compose build controme-adapter && docker compose up -d --no-deps leitstand`.
+Zurück zu Grafana als Hauptansicht wäre jederzeit möglich: Grafana bleibt unverändert.
 
 ## 4. Sicherheitsregeln (technisch durchgesetzt)
 

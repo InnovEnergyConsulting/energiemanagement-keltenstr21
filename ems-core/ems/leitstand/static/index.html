@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMS Keltenstr. 21</title>
+<link rel="stylesheet" href="app.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M9 1 3 9h4l-1 6 6-8H8z' fill='%232f5d8a'/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="head">
+  <div class="wrap">
+    <div class="brand"><h1><span class="dot unbekannt" id="gesamt" title="Gesamtzustand"></span>Energiemanagement Keltenstr. 21</h1>
+      <small>Leitstand · nur Lesen (Schalten gesperrt bis Phase 8)</small></div>
+    <div class="status" id="status" aria-label="Systemstatus" aria-live="polite"></div>
+    <div class="meta"><span id="stand">lädt …</span><span>Normalbetrieb grau · Farbe = Abweichung</span></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="banner" id="fehler" hidden></div>
+  <nav class="tabs" role="tablist" aria-label="Bereiche">
+    <button class="tab" role="tab" id="t-fb" data-hash="fb" aria-controls="p-fb" aria-selected="true">Regelung FB <span class="badge" id="b-fb">–</span></button>
+    <button class="tab" role="tab" id="t-wp" data-hash="wp" aria-controls="p-wp" aria-selected="false">Regelung WP <span class="badge" id="b-wp">–</span></button>
+    <button class="tab" role="tab" id="t-shelly" data-hash="shelly" aria-controls="p-shelly" aria-selected="false">Steuerung Shelly <span class="badge" id="b-shelly">geplant</span></button>
+  </nav>
+
+  <!-- Reiter 1: Fußbodenheizung (Controme) -->
+  <section class="pane" role="tabpanel" id="p-fb" aria-labelledby="t-fb">
+    <div><div class="lvl">Lage <span>– was jetzt wichtig ist</span></div><div class="kpis" id="fb-kpis"></div></div>
+    <div>
+      <div class="lvl">Räume <span>– Zeile anklicken öffnet das Detailfenster des Raums. Farbe nur, wenn ein Fühler über 6 h schweigt.</span></div>
+      <div class="scroll"><table>
+        <thead><tr><th>Raum</th><th class="n">Ist °C</th><th class="n">Soll °C</th><th>Abweichung</th><th class="n">Offset K</th><th class="n">Feuchte</th><th>Szene</th><th>nächster Wechsel</th><th class="n">Fühler</th></tr></thead>
+        <tbody id="fb-rooms"></tbody>
+      </table></div>
+    </div>
+    <div>
+      <div class="lvl">Verlauf <span id="fb-sel-hint"></span><div class="tools" data-range="fb"></div></div>
+      <div class="grid2">
+        <div class="card"><h3 id="fb-chart-title">Raumtemperaturen</h3><div class="chart" id="fb-chart-rooms"></div><div class="legend" id="fb-legend-rooms"></div></div>
+        <div class="card"><h3>Rücklauf je Heizkreis <small>Mittel aller Kreise hervorgehoben</small></h3><div class="chart" id="fb-chart-return"></div><div class="legend" id="fb-legend-return"></div></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h3>Rücklauf aktuell</h3><div class="scroll"><table>
+        <thead><tr><th>Kreis</th><th>Raum</th><th class="n">°C</th><th class="n">Alter</th></tr></thead>
+        <tbody id="fb-returns"></tbody></table></div></div>
+      <div class="card"><h3>Vorlauf</h3><div id="fb-flow"></div></div>
+    </div>
+  </section>
+
+  <!-- Reiter 2: Wärmepumpe (EEBUS) -->
+  <section class="pane" role="tabpanel" id="p-wp" aria-labelledby="t-wp" hidden>
+    <div><div class="lvl">Lage <span>– Vaillant-Anlage über EEBUS (VR 940)</span></div><div class="kpis" id="wp-kpis"></div></div>
+    <div><div class="lvl">Betriebsarten <span>– Anzeige, kein Bedienelement</span></div><div class="chips" id="wp-chips"></div></div>
+    <div>
+      <div class="lvl">Verlauf <div class="tools" data-range="wp"></div></div>
+      <div class="grid2">
+        <div class="card"><h3>Leistungsaufnahme</h3><div class="chart" id="wp-chart-power"></div><div class="legend" id="wp-legend-power"></div></div>
+        <div class="card"><h3>Temperaturen</h3><div class="chart" id="wp-chart-temp"></div><div class="legend" id="wp-legend-temp"></div></div>
+      </div>
+    </div>
+    <div class="card"><h3>Meldungen <small>letzte 7 Tage, gleiche Meldungen zusammengefasst</small></h3><div class="scroll"><table>
+      <thead><tr><th>zuletzt</th><th>Meldung</th><th class="n">Anzahl</th><th>erstmals</th></tr></thead>
+      <tbody id="wp-msgs"></tbody></table></div></div>
+  </section>
+
+  <!-- Reiter 3: Shelly -->
+  <section class="pane" role="tabpanel" id="p-shelly" aria-labelledby="t-shelly" hidden>
+    <div>
+      <div class="lvl">Lage <span>– Phase 5 lesend, Phase 8 schaltend</span></div>
+      <div class="kpis">
+        <div class="kpi geplant"><div class="k">Leistung aller Shellys</div><div class="v txt">nach Einbindung</div><div class="s">Summe und größte Verbraucher</div></div>
+        <div class="kpi geplant"><div class="k">Eingeschaltet</div><div class="v txt" id="sh-on">–</div><div class="s">Schaltzustand je Kanal</div></div>
+        <div class="kpi geplant"><div class="k">Nicht erreichbar</div><div class="v txt">–</div><div class="s">mit Datenalter</div></div>
+      </div>
+    </div>
+    <div><div class="lvl">Geräte <span>– im Heimnetz gefunden (mDNS), Zweck und Stromkreis folgen mit dem Inventar</span></div><div class="devs" id="sh-devs"></div></div>
+    <div class="card"><h3>Schalten (ab Phase 8)</h3>
+      <p class="lock"><svg viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="5.5" width="8" height="5.5"/><path d="M4 5.5V4a2 2 0 0 1 4 0v1.5"/></svg>
+      Gesperrt. Schaltbefehle laufen später über den Steuerdienst: Anmeldung, Bestätigungsschritt, Rückmeldung vom Gerät, Zeitlimit und Journal. Ein Klick allein schaltet nie.</p></div>
+  </section>
+
+  <!-- Raum-Detailfenster -->
+  <dialog id="raum-dlg" aria-labelledby="raum-titel">
+    <div class="dlg-head">
+      <div><h2 id="raum-titel">Raum</h2><small id="raum-sub"></small></div>
+      <button class="close" id="raum-zu" aria-label="Schließen" title="Schließen (Esc)">×</button>
+    </div>
+    <div class="dlg-body">
+      <div class="kpis" id="raum-kpis"></div>
+      <div class="lvl">Verlauf <span id="raum-fenster"></span><div class="tools" data-range="raum"></div></div>
+      <div class="card"><h3>Raumtemperatur Ist / Soll</h3><div class="chart" id="raum-chart-temp"></div><div class="legend" id="raum-legend-temp"></div></div>
+      <div class="grid2">
+        <div class="card"><h3>Rücklauf der zugeordneten Heizkreise</h3><div class="chart" id="raum-chart-return"></div><div class="legend" id="raum-legend-return"></div></div>
+        <div class="card"><h3>Luftfeuchte</h3><div class="chart" id="raum-chart-hum"></div><div class="legend" id="raum-legend-hum"></div></div>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="foot"><span>Tiefere Auswertungen: <a href="https://192.168.0.172:8443/grafana/">Grafana</a></span><span>Daten: InfluxDB, Aktualisierung alle 30 s</span><span id="foot-state"></span></div>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

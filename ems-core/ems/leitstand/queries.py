@@ -1,11 +1,16 @@
 """Leitstand: Abfragen an InfluxDB (nur lesend, eigener Lese-Token)."""
+import re
+from datetime import datetime, timedelta
+
 from influxdb_client import InfluxDBClient
+
+from ..common.timeutil import utcnow
 
 TEL_KEYS = ("asset_id", "name", "floor", "quantity", "role", "source", "medium", "room_asset_id", "unit")
 STATE_FIELDS = ("scene", "next_scene", "next_change_at", "mode", "dhw_mode", "dhw_overrun_active", "heating_mode",
                 "lpc_limit_active", "lpc_limit_w", "failsafeDurationMinimum", "failsafeConsumptionActivePowerLimit")
 
-# Verläufe je Reiter: Flux-Filter + Einordnung für die Anzeige
+# Verläufe je Reiter: Flux-Filter
 SERIES = {
     "fb": 'r.source == "controme" and ((r.medium == "room_climate" and (r.role == "room_actual" or '
           'r.role == "setpoint_effective") and r.quantity != "relative_humidity") or r.role == "return_flow" '
@@ -13,7 +18,31 @@ SERIES = {
     "wp": 'r.source == "eebus" and ((r.asset_id == "vaillant_wp" and r.quantity == "active_power") or '
           'r.asset_id == "vaillant_warmwasser" or r.asset_id == "vaillant_zone_1" or r.asset_id == "vaillant_aussenfuehler")',
 }
-SPANNEN = {"24h": ("-24h", "10m"), "7d": ("-7d", "1h"), "30d": ("-30d", "6h")}
+# Zeitspanne -> (Sekunden, Mittelungsfenster). Feiner als die Messrate lohnt nicht (Controme 60 s, EEBUS 5 min).
+SPANNEN = {
+    "30m": (30 * 60, "1m"), "60m": (60 * 60, "1m"), "180m": (180 * 60, "2m"), "6h": (6 * 3600, "5m"),
+    "12h": (12 * 3600, "5m"), "24h": (24 * 3600, "10m"), "7d": (7 * 86400, "30m"), "30d": (30 * 86400, "2h"),
+}
+# Fühler, die nur bei Änderung senden (Controme-Raumfühler, EEBUS-Benachrichtigungen), gelten bis zu HALTEN_S
+# als unverändert: die Oberfläche zeichnet sie als Stufen und setzt den letzten Wert vor Beginn der Spanne fort.
+HALTEN_S = 6 * 3600
+_ASSET_RE = re.compile(r"^[a-z0-9_]{1,64}$")
+
+
+def stufig(source: str | None, medium: str | None, role: str | None) -> bool:
+    return source == "eebus" or (source == "controme" and medium == "room_climate")
+
+
+def raum_filter(asset_id: str) -> str:
+    """Flux-Filter für das Raum-Detailfenster; asset_id wird streng geprüft (kein Einschleusen in Flux)."""
+    if not _ASSET_RE.match(asset_id or ""):
+        raise ValueError("ungültige Raum-ID")
+    return (f'(r.asset_id == "{asset_id}" and (r.quantity == "temperature" or r.quantity == "temperature_setpoint" '
+            f'or r.quantity == "relative_humidity")) or (r.room_asset_id == "{asset_id}" and r.role == "return_flow")')
+
+
+def _t(dt: datetime) -> str:
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class Influx:
@@ -76,20 +105,38 @@ class Influx:
         return [{"time": r.get_time(), "source": r.values.get("source"), "kind": r.values.get("kind"),
                  "detail": r.get_value()} for r in self._records(flux)]
 
-    def series(self, bereich: str, spanne: str) -> list[dict]:
-        start, every = SPANNEN[spanne]
-        flux = f'''from(bucket: "ems_detail") |> range(start: {start})
-  |> filter(fn: (r) => r._measurement == "telemetry" and r._field == "value")
-  |> filter(fn: (r) => {SERIES[bereich]})
-  |> group(columns: ["asset_id", "name", "quantity", "role", "unit", "room_asset_id"])
+    def series(self, flt: str, spanne: str) -> dict:
+        secs, every = SPANNEN[spanne]
+        now = utcnow()
+        start = now - timedelta(seconds=secs)
+        group = '["asset_id", "name", "quantity", "role", "unit", "room_asset_id", "source", "medium"]'
+        base = f'''  |> filter(fn: (r) => r._measurement == "telemetry" and r._field == "value")
+  |> filter(fn: (r) => {flt})
+  |> group(columns: {group})'''
+        main = f'''from(bucket: "ems_detail") |> range(start: {_t(start)}, stop: {_t(now)})
+{base}
   |> aggregateWindow(every: {every}, fn: mean, createEmpty: false)'''
+        before = f'''from(bucket: "ems_detail") |> range(start: {_t(start - timedelta(seconds=HALTEN_S))}, stop: {_t(start)})
+{base}
+  |> last()'''
         out = {}
-        for r in self._records(flux):
-            key = f'{r.values["asset_id"]}|{r.values["quantity"]}'
-            s = out.setdefault(key, {"key": key, "asset_id": r.values["asset_id"], "name": r.values.get("name"),
-                                     "quantity": r.values["quantity"], "role": r.values.get("role"),
-                                     "unit": r.values.get("unit"), "raum": r.values.get("room_asset_id"),
-                                     "punkte": []})
+
+        def entry(r):
+            v = r.values
+            key = f'{v["asset_id"]}|{v["quantity"]}'
+            return out.setdefault(key, {
+                "key": key, "asset_id": v["asset_id"], "name": v.get("name"), "quantity": v["quantity"],
+                "role": v.get("role"), "unit": v.get("unit"), "raum": v.get("room_asset_id"),
+                "stufig": stufig(v.get("source"), v.get("medium"), v.get("role")), "vorher": None, "punkte": []})
+
+        for r in self._records(main):
             if r.get_value() is not None:
-                s["punkte"].append([int(r.get_time().timestamp() * 1000), round(r.get_value(), 2)])
-        return list(out.values())
+                entry(r)["punkte"].append([int(r.get_time().timestamp() * 1000), round(r.get_value(), 2)])
+        for r in self._records(before):
+            e = entry(r)
+            if e["stufig"] and r.get_value() is not None:
+                e["vorher"] = [int(r.get_time().timestamp() * 1000), round(r.get_value(), 2)]
+        for e in out.values():
+            e["punkte"].sort()
+        return {"von": int(start.timestamp() * 1000), "bis": int(now.timestamp() * 1000),
+                "fenster": every, "halten_s": HALTEN_S, "reihen": list(out.values())}

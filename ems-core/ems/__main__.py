@@ -5,6 +5,7 @@ ROLES = {
     "controme-adapter": "ems.adapters.controme",
     "normalizer": "ems.normalizer.service",
     "writer": "ems.writer.service",
+    "leitstand": "ems.leitstand.service",
 }
 
 

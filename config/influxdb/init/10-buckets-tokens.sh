@@ -30,6 +30,9 @@ token "ems-writer" writer_token \
 # Grafana: nur lesen
 token "ems-grafana-read" grafana_token \
   --read-bucket "$RAW" --read-bucket "$DET" --read-bucket "$AGG" --read-bucket "$EVT"
+# Leitstand: nur lesen (ohne Rohdaten-Bucket)
+token "ems-leitstand-read" leitstand_token \
+  --read-bucket "$RAW" --read-bucket "$DET" --read-bucket "$EVT"
 
 # Stündliche Verdichtung ems_detail -> ems_agg:
 # Momentanwerte (Temperatur, Leistung …) als Mittelwert, Zählerstände (*_total) als letzter Wert.
