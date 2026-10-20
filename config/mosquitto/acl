@@ -18,6 +18,11 @@ user controme_adapter
 topic write ems/v1/raw/controme/#
 topic readwrite ems/v1/availability/controme
 
+# EEBUS-Adapter (Vaillant VR 940) – Stufe A: nur Rohdaten und eigene Verfügbarkeit
+user eebus_adapter
+topic write ems/v1/raw/eebus/#
+topic readwrite ems/v1/availability/eebus
+
 user normalizer
 topic read ems/v1/raw/#
 topic write ems/v1/telemetry/#

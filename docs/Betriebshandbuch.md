@@ -52,6 +52,7 @@ Controme-Miniserver 192.168.0.120 ──HTTP, nur lesend, 60 s──▶ ems-cont
 | `ems-controme-adapter` | ems-core, Rolle `controme-adapter`: temps/ alle 60 s, vtr/ (Vorlauf) alle 5 min, info/ stündlich | – |
 | `ems-normalizer` | ems-core, Rolle `normalizer`, Mapping `config/mapping/*.yaml` | – |
 | `ems-writer` | ems-core, Rolle `writer` | `data/writer/buffer.sqlite` |
+| `ems-eebus` | EEBUS-Adapter (Go) zum Vaillant VR 940, **Host-Netz**, nur Überwachung (MPC, MDT) – siehe `EEBUS_Adapter_Konzept.md` | `data/eebus` (Analyse), `secrets/eebus` (Zertifikat) |
 
 **Datenablage (InfluxDB, Organisation `keltenstr21`):**
 
@@ -160,4 +161,4 @@ docker exec ems-backup ems-backup snapshots   # vorhandene Stände
 | 4 | Optischer Zähler (Haus) und **eigener WP-Zähler** | Zählermodelle, Lesekopf |
 | 5 | Shelly/Tasmota lesend | Geräteinventar |
 | – | Vorlauftemperatur aus Controme `vtr/` – Abfrage läuft, liefert {} bis der vorhandene Vorlauffühler eingebaut und in Controme als Regelung angelegt ist; danach Mapping `controme_vtr.yaml` an echten Daten prüfen | Einbau Fühler |
-| 9 | Vaillant (VR 921 / VRC 720/3, Wärmemengenzähler) | WP-Detaildaten |
+| 9 | Vaillant: EEBUS-Adapter Stufe A läuft (Kopplung offen), Stufe B Analyse, C Integration | Bestätigung in der myVAILLANT-App; WP-Detaildaten, Wärmemengenzähler |

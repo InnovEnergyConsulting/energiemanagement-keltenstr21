@@ -14,7 +14,7 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 umask 077
-mkdir -p secrets/mosquitto secrets/mqtt-tls secrets/influx-tokens secrets/rclone
+mkdir -p secrets/mosquitto secrets/mqtt-tls secrets/influx-tokens secrets/rclone secrets/eebus
 
 gen() {  # gen <datei> – 32 Zeichen, nur URL-sichere Zeichen
   [ -s "secrets/$1" ] && return 0
@@ -26,7 +26,7 @@ gen influx_admin_password
 gen influx_admin_token
 gen grafana_admin_password
 gen restic_password            # Schlüssel der Sicherung – OHNE ihn ist jedes Backup wertlos -> Vaultwarden + Papier!
-MQTT_USERS="ems_admin controme_adapter normalizer writer"
+MQTT_USERS="ems_admin controme_adapter normalizer writer eebus_adapter"
 for u in $MQTT_USERS; do gen "mqtt_$u"; done
 
 # --- Mosquitto-Passwortdatei (Hashes) mit dem Broker-Image selbst erzeugen
@@ -36,6 +36,14 @@ if [ ! -s secrets/mosquitto/passwd ]; then
   docker run --rm -v "$PWD/secrets/mosquitto:/out" eclipse-mosquitto:2.0.22 sh -c \
     "touch /out/passwd && chmod 600 /out/passwd && $args chown 1883:1883 /out/passwd && chmod 600 /out/passwd"
   echo "neu: secrets/mosquitto/passwd"
+else
+  # neu hinzugekommene Konten nachtragen (bestehende bleiben unverändert)
+  for u in $MQTT_USERS; do
+    docker run --rm -v "$PWD/secrets/mosquitto:/out" eclipse-mosquitto:2.0.22 sh -c "grep -q '^$u:' /out/passwd" \
+      || { docker run --rm -v "$PWD/secrets/mosquitto:/out" eclipse-mosquitto:2.0.22 sh -c \
+             "mosquitto_passwd -b /out/passwd $u $(cat secrets/mqtt_$u) && chown 1883:1883 /out/passwd && chmod 600 /out/passwd" 2>/dev/null
+           echo "MQTT-Konto ergänzt: $u"; }
+  done
 fi
 
 # --- TLS für MQTT 8883: eigene kleine CA (10 Jahre) + Serverzertifikat (825 Tage) für 192.168.0.172

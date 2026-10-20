@@ -17,6 +17,11 @@ from . import controme
 log = logsetup.setup("ems.normalizer")
 
 
+# Quellen in der Analysephase: Rohdaten werden nur gespeichert (ems_raw), noch nicht normalisiert –
+# sonst entstünde für jede Nachricht eine "kein Mapping"-Qualitätsmeldung. (EEBUS: Konzept Stufe A/B)
+ANALYSIS_ONLY = {"eebus"}
+
+
 class Normalizer:
     def __init__(self, mappings: dict, publish):
         self.mappings = mappings
@@ -29,6 +34,8 @@ class Normalizer:
         if len(parts) != 5:
             return
         source, stream = parts[3], parts[4]
+        if source in ANALYSIS_ONLY:
+            return
         try:
             raw = json.loads(payload)
         except ValueError:

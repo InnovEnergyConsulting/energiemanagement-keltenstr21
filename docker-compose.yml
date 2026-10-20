@@ -211,6 +211,34 @@ services:
       influxdb: { condition: service_healthy }
     networks: [backend, device]               # backend: InfluxDB; device: Internet für OneDrive
 
+  # ---------------------------------------------------------------- EEBUS (Vaillant VR 940) – Stufe A: nur mitlesen
+  # Konzept: docs/EEBUS_Adapter_Konzept.md. EINZIGER Dienst mit Host-Netz (mDNS-Multicast + SHIP-Verbindung
+  # in beide Richtungen; Anforderungen Kap. 3: Netzwerksonderlösung nur beim betreffenden Adapter).
+  eebus:
+    build: { context: ., dockerfile: eebus/Dockerfile }
+    image: ems-eebus:local
+    container_name: ems-eebus
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 128m
+    user: "1000:1000"
+    network_mode: host
+    # Alpine im Container löst *.local nicht per mDNS auf -> feste Zuordnung (VR 940 per DHCP-Reservierung fixieren!)
+    extra_hosts:
+      - "VR940-21263500203000000933179283N5.local:192.168.0.176"
+    environment:
+      TZ: Europe/Berlin
+      EMS_EEBUS_REMOTE_SKI: e559530753064ec42eda028d01bbff585ab1326c   # Vaillant VR 940 (mDNS 20.10.2026)
+      EMS_EEBUS_PORT: "4712"
+      EMS_EEBUS_IFACE: eno1
+      EMS_MQTT_URL: tcp://192.168.0.172:1883
+    volumes:
+      - ./secrets/eebus:/run/eebus-cert                     # eigenes Zertifikat = eigene SKI (wird gesichert)
+      - ./secrets/mqtt_eebus_adapter:/run/ems-secrets/mqtt_eebus_adapter:ro
+      - ./data/eebus:/data                                  # Analyse: discovery-*.json, spine-trace-*.jsonl
+    depends_on:
+      mosquitto: { condition: service_healthy }
+
 networks:
   backend:
     internal: true        # Datenbank, Broker, Datenkern: kein Internet, kein LAN
