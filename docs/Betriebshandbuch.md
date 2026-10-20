@@ -125,7 +125,7 @@ docker exec ems-mosquitto mosquitto_sub -h localhost -u ems_admin -P "$(cat secr
 | Stufe | Ziel | Wann | Stand |
 |---|---|---|---|
 | 1 | USB-SSD Verbatim 512 GB, ext4 „EMS-BACKUP“, `/mnt/ems-backup` (fstab per UUID, `nofail`) | täglich 03:15 | aktiv |
-| 2 | OneDrive `Backups/EMS-Keltenstr21`, Kopie des restic-Repos (Ende-zu-Ende verschlüsselt) | direkt nach Stufe 1 | **wartet auf OneDrive-Anmeldung** |
+| 2 | OneDrive `Backups/EMS-Keltenstr21`, Kopie des restic-Repos (Ende-zu-Ende verschlüsselt) | direkt nach Stufe 1 | **zurückgestellt** (20.10.2026: Anmeldung per rclone abgebrochen; ohne `secrets/rclone/rclone.conf` wird Stufe 2 übersprungen) |
 | Test | Wiederherstellung in eigenem Compose-Projekt `ems-restoretest` | monatlich am 1., 04:00 | 20.10.2026: 3087/3087 Messwerte identisch |
 
 **Inhalt jedes Snapshots:** konsistentes `influx backup` (alle Buckets, Tokens, Tasks) + `config/` + `secrets/` +
@@ -156,7 +156,7 @@ docker exec ems-backup ems-backup snapshots   # vorhandene Stände
 
 | Phase | Inhalt | Wartet auf |
 |---|---|---|
-| 3 | Backup Stufe 2: OneDrive | einmalige OneDrive-Anmeldung (siehe Kap. 7) |
+| 3 | Backup Stufe 2: OneDrive – zurückgestellt | Entscheidung Nutzer |
 | 4 | Optischer Zähler (Haus) und **eigener WP-Zähler** | Zählermodelle, Lesekopf |
 | 5 | Shelly/Tasmota lesend | Geräteinventar |
 | 9 | Vaillant (VR 921 / VRC 720/3, Wärmemengenzähler) | WP-Detaildaten |
