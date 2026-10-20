@@ -2,7 +2,8 @@
 //
 // Konzept: docs/EEBUS_Adapter_Konzept.md
 //   - vertraut AUSSCHLIESSLICH der konfigurierten SKI (Vaillant VR 940)
-//   - meldet nur Überwachungs-Anwendungsfälle an (MA-MPC Leistung, MA-MDT Warmwasser) –
+//   - meldet nur Überwachungs-Anwendungsfälle an (MA-MPC Leistung, MA-MDT Warmwasser) und liest/abonniert
+//     zusätzlich alle lesbaren Features (Messung, Sollwert, HVAC, Diagnose …) nur lesend für die Analyse –
 //     keine steuernden (OHPCF, LPC), damit das EMS nicht ungewollt die Regelung übernimmt
 //   - zeichnet jede SHIP/SPINE-Nachricht (spine-trace-<tag>.jsonl) und die Gerätebeschreibung
 //     (discovery-<zeit>.json) für die Datenstromanalyse auf
@@ -27,6 +28,7 @@ import (
 	"syscall"
 	"time"
 
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/enbility/eebus-go/api"
 	"github.com/enbility/eebus-go/service"
 	"github.com/enbility/eebus-go/usecases/ma/mdt"
@@ -35,7 +37,6 @@ import (
 	"github.com/enbility/ship-go/cert"
 	spineapi "github.com/enbility/spine-go/api"
 	"github.com/enbility/spine-go/model"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 func env(name, def string) string {
@@ -124,15 +125,71 @@ func (r *recorder) cleanup() { // nur die letzten <keep> Tage behalten
 // ------------------------------------------------------------------ Adapter
 
 type adapter struct {
-	svc       *service.Service
-	remoteSKI string
-	mq        mqtt.Client
-	rec       *recorder
-	dataDir   string
-	mpc       *mpc.MPC
-	mdt       *mdt.MDT
-	lastDisc  string
-	debug     bool
+	svc        *service.Service
+	remoteSKI  string
+	mq         mqtt.Client
+	rec        *recorder
+	dataDir    string
+	mpc        *mpc.MPC
+	mdt        *mdt.MDT
+	lastDisc   string
+	debug      bool
+	local      spineapi.EntityLocalInterface
+	subMu      sync.Mutex
+	subscribed map[string]bool
+}
+
+// Feature-Typen, die für die Analyse NUR GELESEN und abonniert werden (kein Write, kein Binding,
+// kein zusätzlicher Anwendungsfall -> die WP sieht das EMS weiterhin nur als Beobachter).
+var readTypes = []model.FeatureTypeType{
+	model.FeatureTypeTypeMeasurement, model.FeatureTypeTypeSetpoint, model.FeatureTypeTypeHvac,
+	model.FeatureTypeTypeDeviceDiagnosis, model.FeatureTypeTypeDeviceClassification,
+	model.FeatureTypeTypeElectricalConnection, model.FeatureTypeTypeLoadControl,
+	model.FeatureTypeTypeDeviceConfiguration,
+}
+
+func isReadType(t model.FeatureTypeType) bool {
+	for _, x := range readTypes {
+		if x == t {
+			return true
+		}
+	}
+	return false
+}
+
+// readAll: alle lesbaren Server-Features des VR 940 abonnieren (einmal je Verbindung) und auslesen.
+// Die Antworten landen über die Trace-Aufzeichnung vollständig in spine-trace-<Tag>.jsonl.
+func (a *adapter) readAll(ski string) {
+	dev := a.svc.LocalDevice().RemoteDeviceForSki(ski)
+	if dev == nil {
+		return
+	}
+	reads, subs := 0, 0
+	for _, e := range dev.Entities() {
+		for _, f := range e.Features() {
+			if f.Role() != model.RoleTypeServer || !isReadType(f.Type()) || f.Address() == nil {
+				continue
+			}
+			lf := a.local.GetOrAddFeature(f.Type(), model.RoleTypeClient)
+			key := fmt.Sprintf("%s/%s/%v", ski, addr(e), *f.Address().Feature)
+			a.subMu.Lock()
+			if !a.subscribed[key] {
+				if _, err := lf.SubscribeToRemote(f.Address()); err == nil {
+					a.subscribed[key] = true
+					subs++
+				}
+			}
+			a.subMu.Unlock()
+			for fn, op := range f.Operations() {
+				if op.Read() {
+					if _, err := lf.RequestRemoteData(fn, nil, nil, f); err == nil {
+						reads++
+					}
+				}
+			}
+		}
+	}
+	log.Printf("Analyse-Lesung: %d Leseanfragen, %d neue Abos", reads, subs)
 }
 
 func (a *adapter) publish(topic string, payload any, retain bool) {
@@ -194,6 +251,9 @@ func (a *adapter) RemoteServiceConnected(s api.ServiceInterface, id shipapi.Serv
 }
 func (a *adapter) RemoteServiceDisconnected(s api.ServiceInterface, id shipapi.ServiceIdentity) {
 	log.Printf("Getrennt von %s", id.SKI)
+	a.subMu.Lock()
+	a.subscribed = map[string]bool{} // nach Neuverbindung neu abonnieren
+	a.subMu.Unlock()
 	a.availability("offline", "SHIP-Verbindung getrennt")
 }
 func (a *adapter) VisibleRemoteMdnsServicesUpdated(s api.ServiceInterface, entries []shipapi.RemoteMdnsService) {
@@ -330,6 +390,7 @@ func (a *adapter) dumpDiscovery(ski string) {
 		log.Printf("Gerätebeschreibung aufgezeichnet: %s (%d Entitäten)", name, len(entities))
 	}
 	a.raw("discovery", disc)
+	go a.readAll(ski)
 }
 
 // ------------------------------------------------------------------ Start
@@ -348,7 +409,7 @@ func main() {
 	log.Printf("Vertraue ausschließlich: %s", remoteSKI)
 
 	a := &adapter{remoteSKI: remoteSKI, dataDir: dataDir, debug: env("EMS_EEBUS_DEBUG", "") == "1",
-		rec: &recorder{dir: dataDir, keep: 30}}
+		rec: &recorder{dir: dataDir, keep: 30}, subscribed: map[string]bool{}}
 
 	// MQTT (Rohdaten + Verfügbarkeit); ohne Broker läuft die Aufzeichnung trotzdem weiter
 	pw, _ := os.ReadFile(env("EMS_MQTT_PASSWORD_FILE", "/run/ems-secrets/mqtt_eebus_adapter"))
@@ -378,6 +439,11 @@ func main() {
 		log.Fatal(err)
 	}
 	local := a.svc.LocalDevice().EntityForType(model.EntityTypeTypeCEM)
+	a.local = local
+	// Client-Features VOR dem Start anlegen, damit sie in unserer eigenen Gerätebeschreibung stehen
+	for _, t := range readTypes {
+		local.GetOrAddFeature(t, model.RoleTypeClient)
+	}
 	a.mpc = mpc.NewMPC(local, a.onMPC)
 	a.mdt = mdt.NewMDT(local, a.onMDT)
 	for _, uc := range []api.UseCaseInterface{a.mpc, a.mdt} {
@@ -396,6 +462,7 @@ func main() {
 	go func() {
 		for range time.Tick(5 * time.Minute) {
 			a.dumpDiscovery(remoteSKI)
+			a.readAll(remoteSKI) // Werte ohne Notify (z. B. Beschreibungen) regelmäßig nachlesen
 		}
 	}()
 
