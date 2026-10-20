@@ -12,14 +12,14 @@ import yaml
 from ..common import log as logsetup
 from ..common.config import mapping_dir
 from ..common.mqtt import Bus
-from . import controme
+from . import controme, eebus
 
 log = logsetup.setup("ems.normalizer")
 
 
-# Quellen in der Analysephase: Rohdaten werden nur gespeichert (ems_raw), noch nicht normalisiert –
-# sonst entstünde für jede Nachricht eine "kein Mapping"-Qualitätsmeldung. (EEBUS: Konzept Stufe A/B)
-ANALYSIS_ONLY = {"eebus"}
+# Rohdaten-Ströme, die nur gespeichert (ems_raw), aber nicht normalisiert werden – die fachlichen Werte
+# kommen bei EEBUS vollständig über den Strom "spine" (Stufe C, 20.10.2026).
+RAW_ONLY = {("eebus", "mpc"), ("eebus", "mdt"), ("eebus", "discovery"), ("eebus", "mdns")}
 
 
 class Normalizer:
@@ -28,13 +28,14 @@ class Normalizer:
         self.publish = publish
         self.last: dict[str, tuple[str, float]] = {}
         self.reported_quality: set[str] = set()
+        self.eebus_state = eebus.EebusState()
 
     def handle(self, topic: str, payload: bytes):
         parts = topic.split("/")            # ems/v1/raw/<quelle>/<strom>
         if len(parts) != 5:
             return
         source, stream = parts[3], parts[4]
-        if source in ANALYSIS_ONLY:
+        if (source, stream) in RAW_ONLY:
             return
         try:
             raw = json.loads(payload)
@@ -46,6 +47,8 @@ class Normalizer:
                 telemetry, states, quality = controme.normalize(raw, self.mappings["controme_temps"])
             elif source == "controme" and stream == "vtr":
                 telemetry, states, quality = controme.normalize_vtr(raw, self.mappings["controme_vtr"])
+            elif source == "eebus" and stream == "spine":
+                telemetry, states, quality = eebus.normalize(raw, self.mappings["eebus_vr940"], self.eebus_state)
             elif source == "controme" and stream == "info":
                 states = [{"asset_id": "controme_miniserver", "name": "Controme Miniserver", "source": "controme",
                            "received_at": raw["received_at"], "software_date": raw["payload"].get("sw-date"),

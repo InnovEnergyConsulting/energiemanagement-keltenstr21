@@ -1,0 +1,65 @@
+# Mapping EEBUS/SPINE (Vaillant VR 940)  ->  ems/v1/telemetry + ems/v1/state
+# Grundlage: Discovery und Aufzeichnung vom 20.10.2026 (docs/EEBUS_Datenanalyse.md).
+# STAND: vorläufig (Stufe C parallel zu Stufe B) – nach 1–2 Wochen Betriebsdaten überprüfen.
+profile: eebus_vr940
+mapping_version: 1
+source: eebus
+stream: spine
+point_prefix: haus.vaillant
+
+# SPINE-Entitätsadresse (wie in der Discovery) -> stabiles Asset im EMS
+entities:
+  "1":     {asset_id: vaillant_wp,            name: "Wärmepumpe",              circuit_id: heat_pump}
+  "4":     {asset_id: vaillant_warmwasser,    name: "Warmwasser",              circuit_id: unassigned}
+  "5.1.1": {asset_id: vaillant_zone_1,        name: "Heizzone 1 (VRC 720)",    circuit_id: unassigned}
+  "6":     {asset_id: vaillant_aussenfuehler, name: "Außentemperatur Vaillant", circuit_id: unassigned}
+
+# measurementDescription.scopeType -> Messgröße. per_phase: Phase aus electricalConnectionParameterDescription
+# (acMeasuredPhases) wird an die Messgröße gehängt, z. B. active_power_a.
+measurements:
+  acPowerTotal:          {quantity: active_power,              medium: electricity,        role: consumption}
+  acPower:               {quantity: active_power,              medium: electricity,        role: consumption, per_phase: true}
+  acCurrent:             {quantity: current,                   medium: electricity,        role: consumption, per_phase: true}
+  acVoltage:             {quantity: voltage,                   medium: electricity,        role: supply,      per_phase: true}
+  acFrequency:           {quantity: frequency,                 medium: electricity,        role: supply}
+  acEnergyConsumed:      {quantity: energy_consumption_total,  medium: electricity,        role: consumption}
+  acEnergyProduced:      {quantity: energy_production_total,   medium: electricity,        role: production}
+  dhwTemperature:        {quantity: temperature,               medium: domestic_hot_water, role: dhw_actual}
+  roomAirTemperature:    {quantity: temperature,               medium: room_climate,       role: room_actual}
+  outsideAirTemperature: {quantity: temperature,               medium: air,                role: outdoor}
+
+# setpointDescription.setpointType -> Messgröße (nur Sollwerte mit Wert)
+setpoints:
+  valueAbsolute: {quantity: temperature_setpoint, role: setpoint}
+
+# SPINE-Einheit -> EMS-Einheit (Faktor auf den Wert)
+units:
+  W:    {unit: W,       factor: 1}
+  Wh:   {unit: kWh,     factor: 0.001}
+  A:    {unit: A,       factor: 1}
+  V:    {unit: V,       factor: 1}
+  Hz:   {unit: Hz,      factor: 1}
+  degC: {unit: degC,    factor: 1}
+
+# Nur Werte mit valueState "normal" (oder ohne Angabe) werden übernommen; "error"/"outOfRange" -> Qualitätsmeldung
+accepted_value_states: [normal]
+
+# Funktionen, die bewusst nur als Beschreibung/Zwischenspeicher dienen (keine eigene Ausgabe)
+description_functions:
+  - measurementDescriptionListData
+  - measurementConstraintsListData
+  - setpointDescriptionListData
+  - setpointConstraintsListData
+  - electricalConnectionDescriptionListData
+  - electricalConnectionParameterDescriptionListData
+  - electricalConnectionCharacteristicListData
+  - hvacOperationModeDescriptionListData
+  - hvacSystemFunctionDescriptionListData
+  - hvacOverrunDescriptionListData
+  - hvacSystemFunctionOperationModeRelationListData
+  - hvacSystemFunctionSetpointRelationListData
+  - loadControlLimitDescriptionListData
+  - deviceConfigurationKeyValueDescriptionListData
+  - nodeManagementDestinationListData
+  - nodeManagementUseCaseData
+  - nodeManagementDetailedDiscoveryData

@@ -180,8 +180,13 @@ func (a *adapter) readAll(ski string) {
 				}
 			}
 			a.subMu.Unlock()
-			for fn, op := range f.Operations() {
-				if op.Read() {
+			// erst Beschreibungen, dann Werte – sonst kommen Werte an, deren Bedeutung der Normalizer noch nicht kennt
+			for pass := 0; pass < 2; pass++ {
+				for fn, op := range f.Operations() {
+					isDesc := strings.Contains(string(fn), "Description")
+					if !op.Read() || (pass == 0) != isDesc {
+						continue
+					}
 					if _, err := lf.RequestRemoteData(fn, nil, nil, f); err == nil {
 						reads++
 					}
@@ -220,6 +225,12 @@ func (a *adapter) Trace(args ...interface{}) {
 			var parsed any
 			if json.Unmarshal([]byte(text), &parsed) == nil {
 				rec["msg"] = parsed
+				// Stufe C: jede empfangene Daten-Nachricht (Antwort/Benachrichtigung mit *ListData) unverändert
+				// an das EMS geben – die fachliche Zuordnung macht der Normalizer (Mapping eebus_vr940.yaml).
+				if dir == "Recv:" && strings.Contains(text, "ListData") &&
+					(strings.Contains(text, `"reply"`) || strings.Contains(text, `"notify"`)) {
+					a.raw("spine", parsed)
+				}
 			} else {
 				rec["text"] = text // SHIP-Steuernachrichten sind teils kein reines JSON
 			}
@@ -266,10 +277,23 @@ func (a *adapter) VisibleRemoteMdnsServicesUpdated(s api.ServiceInterface, entri
 }
 func (a *adapter) ServiceUpdated(id shipapi.ServiceIdentity) {}
 func (a *adapter) ServicePairingDetailUpdate(id shipapi.ServiceIdentity, d *shipapi.ConnectionStateDetail) {
-	state := fmt.Sprint(d.State())
+	names := map[shipapi.ConnectionState]string{
+		shipapi.ConnectionStateNone: "keine", shipapi.ConnectionStateQueued: "eingereiht",
+		shipapi.ConnectionStateInitiated: "eingeleitet", shipapi.ConnectionStateReceivedPairingRequest: "Anfrage erhalten",
+		shipapi.ConnectionStateInProgress: "Handshake läuft", shipapi.ConnectionStateTrusted: "vertraut",
+		shipapi.ConnectionStatePin: "PIN", shipapi.ConnectionStateCompleted: "abgeschlossen",
+		shipapi.ConnectionStateRemoteDeniedTrust: "Vertrauen verweigert", shipapi.ConnectionStateError: "Fehler"}
+	state := names[d.State()]
 	log.Printf("Kopplungszustand %s: %s", id.SKI, state)
-	a.publish("ems/v1/availability/eebus", map[string]any{"status": "pairing", "since": nowISO(),
-		"reason": "Kopplungszustand: " + state}, true)
+	switch d.State() {
+	case shipapi.ConnectionStateCompleted:
+		a.availability("online", "Kopplung abgeschlossen")
+	case shipapi.ConnectionStateTrusted:
+		// Zwischenstand – "online" kommt mit Completed bzw. RemoteServiceConnected
+	default:
+		a.publish("ems/v1/availability/eebus", map[string]any{"status": "pairing", "since": nowISO(),
+			"reason": "Kopplungszustand: " + state}, true)
+	}
 	if id.SKI == a.remoteSKI && d.State() == shipapi.ConnectionStateRemoteDeniedTrust {
 		log.Printf("VR 940 hat das Vertrauen verweigert – Kopplung in der myVAILLANT-App bestätigen")
 	}

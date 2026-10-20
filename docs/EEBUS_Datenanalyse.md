@@ -59,3 +59,15 @@ damit LPC, die Konfiguration der Warmwasser-/Raumsollwerte und die SG-Ready-Kont
 - Bedeutung der Sollwerte 0 und 2 (ohne Wert, Typ noch nicht ausgewertet).
 - Verhalten nach Firmware-Updates (Discovery-Vergleich).
 - Danach: Mapping `eebus_*.yaml`, Normalizer-Parser, Tests mit Fixtures aus dieser Aufzeichnung, Grafana „Wärmepumpe“ (Stufe C).
+
+---
+
+## 3. Laufende Auswertung
+
+Täglich 06:30 erzeugt `scripts/eebus-analyse.py` einen Bericht unter `data/eebus/analyse-<Datum>.md`
+(Zeitraum: letzte 7 Tage). Erster Lauf 20.10.2026: Werte kommen bislang überwiegend als Antwort auf die
+5-Minuten-Lesungen; Warmwasser zusätzlich per Benachrichtigung bei Änderung. 15 Messgrößen der WP
+(Phasen, Ströme, Spannungen, Energie, Frequenz) sind beschrieben, aber ohne Wert – Prüfung im Heizbetrieb.
+
+**Klärung durch den Nutzer (20.10.2026):** Außenfühler noch nicht angeschlossen; Heizkreis wird am
+21.10.2026 in Betrieb genommen; Energie-Messung der WP (eigener Zähler) wird geklärt. IP des VR 940 fest.

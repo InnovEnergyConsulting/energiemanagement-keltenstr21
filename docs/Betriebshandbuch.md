@@ -11,6 +11,7 @@ Konzept: `Umsetzungskonzept.md` · Anforderungen: `Anforderungen.md` · Vaillant
 |---|---|---|
 | Grafana (Auswertung) | https://192.168.0.172:8443/grafana/ | Benutzer `admin`, Passwort in `secrets/grafana_admin_password` |
 | Dashboard „Heizung – Räume (Controme)“ | Ordner *Energiemanagement* | – |
+| Dashboard „Wärmepumpe (Vaillant)“ | Ordner *Energiemanagement* (EEBUS über VR 940) | – |
 | MQTT für Geräte (TLS) | `192.168.0.172:8883`, CA: `zertifikate/EMS-MQTT-CA.crt` | eigenes Konto je Gerät (kommt mit Phase 5) |
 | MQTT ohne TLS | `192.168.0.172:1883` | nur für Geräte ohne TLS |
 | Kachel im System-Dashboard | „Energiemanagement“ | – |
@@ -161,4 +162,4 @@ docker exec ems-backup ems-backup snapshots   # vorhandene Stände
 | 4 | Optischer Zähler (Haus) und **eigener WP-Zähler** | Zählermodelle, Lesekopf |
 | 5 | Shelly/Tasmota lesend | Geräteinventar |
 | – | Vorlauftemperatur aus Controme `vtr/` – Abfrage läuft, liefert {} bis der vorhandene Vorlauffühler eingebaut und in Controme als Regelung angelegt ist; danach Mapping `controme_vtr.yaml` an echten Daten prüfen | Einbau Fühler |
-| 9 | Vaillant: EEBUS-Adapter Stufe A läuft (Kopplung offen), Stufe B Analyse, C Integration | Bestätigung in der myVAILLANT-App; WP-Detaildaten, Wärmemengenzähler |
+| 9 | Vaillant/EEBUS: gekoppelt, Stufe B (Analyse) läuft, Stufe C (Integration, vorläufig) aktiv; Mapping-Prüfung nach Inbetriebnahme Heizkreis | 1–2 Wochen Betriebsdaten; Außenfühler; Wärmemengenzähler |

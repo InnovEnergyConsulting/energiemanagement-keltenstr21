@@ -158,3 +158,12 @@ Befehlstopics (Grundsatz „Lesen vor Schreiben“ bleibt technisch durchgesetzt
 Zusätzlich zu MPC/MDT liest und abonniert der Adapter alle lesbaren Features (Measurement, Setpoint, HVAC,
 DeviceDiagnosis, DeviceClassification, ElectricalConnection, LoadControl, DeviceConfiguration) – **nur lesend**,
 ohne Binding und ohne weitere Anwendungsfälle. Ergebnis und erste Werte: `EEBUS_Datenanalyse.md`.
+
+**20.10.2026, 19:40 – Stufe B gestartet, Stufe C eingerichtet (vorläufig):**
+- Stufe B: Aufzeichnung läuft; `scripts/eebus-analyse.py` erzeugt täglich 06:30 `data/eebus/analyse-<Datum>.md`
+  (Werte je Größe, Notify-Anteil, Abstände, Wertebereich, Status, nie gelieferte Größen).
+- Stufe C: Adapter gibt jede Daten-Nachricht als `ems/v1/raw/eebus/spine` weiter; Normalizer-Parser
+  `ems/normalizer/eebus.py` + Mapping `config/mapping/eebus_vr940.yaml` (Entität→Asset, scopeType→Messgröße,
+  Einheiten, valueState-Filter); 7 Tests mit 43 echten VR-940-Nachrichten (insgesamt 21). Assets:
+  `vaillant_wp`, `vaillant_warmwasser`, `vaillant_zone_1`, `vaillant_aussenfuehler`. Grafana-Dashboard
+  „Wärmepumpe (Vaillant)“. Das Mapping wird nach 1–2 Wochen Betriebsdaten (Heizkreis ab 21.10.) überprüft.
