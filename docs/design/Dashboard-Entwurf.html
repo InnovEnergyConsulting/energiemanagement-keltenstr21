@@ -1,0 +1,337 @@
+<title>EMS Keltenstr. 21 Leitstand</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap">
+<style>
+/* Layout: Leitstand nach ISA-101 – ruhige Grautöne für Normalbetrieb, Farbe nur für Abweichungen;
+   feste Statuszeile oben, darunter drei Reiter, je Reiter: Lage (Zahlen) → Verlauf → Details. */
+:root{
+  --ground:#e9ecef; --panel:#f6f7f8; --line:#cfd4da; --ink:#1d2329; --ink-2:#56606b; --ink-3:#8a939c;
+  --accent:#2f5d8a; --accent-ink:#ffffff; --accent-soft:#dbe5ef;
+  --ok:#3d7a57; --warn:#b7791f; --alarm:#b3362f; --plan:#8a939c;
+  --warn-soft:#f6e9d3; --alarm-soft:#f4dcda; --ok-soft:#dbeae1;
+  --chart:#2f5d8a; --chart-2:#b7791f;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-data:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --ground:#15191d; --panel:#1d2227; --line:#323a42; --ink:#e3e7eb; --ink-2:#a3adb7; --ink-3:#6f7a85;
+  --accent:#7fa8d1; --accent-ink:#0f1418; --accent-soft:#24313f;
+  --ok:#6fb38c; --warn:#e0a54a; --alarm:#e5736a; --plan:#6f7a85;
+  --warn-soft:#3a2e1a; --alarm-soft:#3d2321; --ok-soft:#1f3328; --chart:#7fa8d1; --chart-2:#e0a54a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --ground:#15191d; --panel:#1d2227; --line:#323a42; --ink:#e3e7eb; --ink-2:#a3adb7; --ink-3:#6f7a85;
+  --accent:#7fa8d1; --accent-ink:#0f1418; --accent-soft:#24313f;
+  --ok:#6fb38c; --warn:#e0a54a; --alarm:#e5736a; --plan:#6f7a85;
+  --warn-soft:#3a2e1a; --alarm-soft:#3d2321; --ok-soft:#1f3328; --chart:#7fa8d1; --chart-2:#e0a54a; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.num,td.n,.val{font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--f-display);font-weight:600;text-wrap:balance;margin:0}
+
+/* ---------- Entwurfshinweis */
+.draft{background:var(--accent-soft);color:var(--ink);border-bottom:1px solid var(--line)}
+.draft .wrap{padding-block:8px;display:flex;gap:12px;flex-wrap:wrap;align-items:baseline;font-size:13px}
+.draft b{font-family:var(--f-display);letter-spacing:.04em;text-transform:uppercase;font-size:12px}
+
+/* ---------- Kopfzeile mit Systemstatus (in jedem Reiter gleich) */
+.head{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);border-bottom:1px solid var(--line)}
+.head .wrap{padding-block:10px;display:grid;grid-template-columns:auto 1fr;gap:6px 20px;align-items:center}
+.brand h1{font-size:19px;letter-spacing:.01em}
+.brand small{display:block;color:var(--ink-2);font-size:12px}
+.status{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.st{display:flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid var(--line);background:var(--ground);border-radius:3px;font-size:12.5px;white-space:nowrap}
+.st .lbl{color:var(--ink-2)}
+.st .val{font-family:var(--f-data);font-size:12px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--ok);flex:none}
+.st.warn{background:var(--warn-soft);border-color:var(--warn)} .st.warn .dot{background:var(--warn);border-radius:1px;transform:rotate(45deg)}
+.st.alarm{background:var(--alarm-soft);border-color:var(--alarm)} .st.alarm .dot{background:var(--alarm);border-radius:0}
+.st.plan .dot{background:transparent;border:1.5px dashed var(--plan)}
+.meta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 18px;color:var(--ink-3);font-size:12px;font-family:var(--f-data)}
+
+/* ---------- Reiter */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-top:18px;overflow-x:auto}
+.tab{appearance:none;border:1px solid transparent;border-bottom:none;background:none;color:var(--ink-2);font-family:var(--f-display);font-size:15px;font-weight:500;padding:10px 18px 9px;cursor:pointer;border-radius:4px 4px 0 0;white-space:nowrap;display:flex;gap:8px;align-items:center}
+.tab:hover{color:var(--ink);background:var(--panel)}
+.tab[aria-selected="true"]{background:var(--panel);color:var(--ink);border-color:var(--line);margin-bottom:-1px;box-shadow:inset 0 3px 0 var(--accent)}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tab .badge{font-family:var(--f-data);font-size:11px;padding:1px 6px;border-radius:9px;background:var(--ground);color:var(--ink-2);border:1px solid var(--line)}
+.tab .badge.warn{background:var(--warn-soft);border-color:var(--warn);color:var(--ink)}
+.pane{background:var(--panel);border:1px solid var(--line);border-top:none;padding:18px;display:grid;gap:22px;margin-bottom:28px}
+
+/* ---------- Bausteine */
+.lvl{font-family:var(--f-display);text-transform:uppercase;letter-spacing:.08em;font-size:11.5px;color:var(--ink-3);margin-bottom:8px;display:flex;gap:10px;align-items:baseline}
+.lvl span{text-transform:none;letter-spacing:0;font-family:var(--f-body);font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{padding:10px 12px;border-left:3px solid var(--line);background:var(--ground);min-width:0}
+.kpi .k{color:var(--ink-2);font-size:12px}
+.kpi .v{font-family:var(--f-data);font-size:24px;line-height:1.15;margin-top:2px}
+.kpi .v small{font-size:13px;color:var(--ink-2)}
+.kpi .s{font-size:12px;color:var(--ink-3)}
+.kpi.warn{border-left-color:var(--warn);background:var(--warn-soft)}
+.kpi.alarm{border-left-color:var(--alarm);background:var(--alarm-soft)}
+.kpi.plan{border-left:3px dashed var(--plan)}
+.kpi.plan .v{color:var(--ink-3);font-size:16px;padding-block:4px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+.grid2>*{min-width:0}
+.card{border:1px solid var(--line);padding:12px;background:var(--panel)}
+.card h3{font-size:14px;margin-bottom:8px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{font-weight:500;color:var(--ink-2);text-align:left;font-size:12px;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td.n{font-family:var(--f-data);text-align:right}
+th.n{text-align:right}
+tr.floor td{background:var(--ground);font-family:var(--f-display);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+td .bar{display:inline-block;height:6px;background:var(--line);width:70px;position:relative;vertical-align:middle}
+td .bar i{position:absolute;inset:0 auto 0 0;background:var(--ink-3)}
+td .tag{font-size:11px;padding:1px 6px;border:1px solid var(--line);border-radius:2px;color:var(--ink-2)}
+td .tag.warn{border-color:var(--warn);background:var(--warn-soft);color:var(--ink)}
+.dim{color:var(--ink-3)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;padding:3px 9px;border:1px solid var(--line);border-radius:2px;background:var(--ground)}
+.chip b{font-weight:600}
+.chip.warn{border-color:var(--warn);background:var(--warn-soft)}
+svg text{fill:var(--ink-3);font-family:var(--f-data);font-size:10px}
+.devs{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.dev{border:1px dashed var(--plan);padding:10px;background:var(--ground)}
+.dev .nm{font-family:var(--f-data);font-size:12px}
+.dev .row{display:flex;justify-content:space-between;color:var(--ink-3);font-size:12px;margin-top:6px}
+.lock{display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-2)}
+.lock svg{width:12px;height:12px;stroke:var(--ink-2);fill:none}
+
+/* ---------- Begründung */
+.why{margin-bottom:36px;display:grid;gap:16px}
+.why h2{font-size:20px}
+.why .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.why .cols>div{min-width:0}
+.why ul{margin:6px 0 0;padding-left:18px;max-width:68ch}
+.why li{margin:4px 0}
+.why p{max-width:70ch;margin:6px 0}
+.why a{color:var(--accent)}
+.why h3{font-size:15px}
+.src{font-size:12.5px;color:var(--ink-2)}
+@media (max-width:640px){.head .wrap{grid-template-columns:1fr}.status{justify-content:flex-start}.kpi .v{font-size:20px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="draft"><div class="wrap"><b>Entwurf</b><span>Gestaltungsvorschlag für das Energiemanagement-Portal – noch nicht umgesetzt. Werte: Beispielwerte, angelehnt an den Stand vom 20.10.2026 – Raumwerte und Verläufe sind illustrativ.</span></div></div>
+
+<header class="head">
+  <div class="wrap">
+    <div class="brand"><h1>Energiemanagement Keltenstr. 21</h1><small>Leitstand · nur Lesen (Steuerung gesperrt bis Phase 8)</small></div>
+    <div class="status" aria-label="Systemstatus">
+      <div class="st" title="Alle EMS-Dienste laufen"><span class="dot"></span><span class="lbl">EMS</span><span class="val">7/7 Dienste</span></div>
+      <div class="st" title="Controme-Miniserver antwortet"><span class="dot"></span><span class="lbl">Fußbodenheizung</span><span class="val">vor 0,4 min</span></div>
+      <div class="st warn" title="EEBUS verbunden, Außenfühler meldet Fehler"><span class="dot"></span><span class="lbl">Wärmepumpe</span><span class="val">1 Hinweis</span></div>
+      <div class="st plan" title="Shelly-Geräte gefunden, noch nicht eingebunden"><span class="dot"></span><span class="lbl">Shelly</span><span class="val">11 gefunden</span></div>
+      <div class="st" title="Letzte Sicherung auf USB-SSD erfolgreich"><span class="dot"></span><span class="lbl">Sicherung</span><span class="val">heute 14:38</span></div>
+    </div>
+    <div class="meta"><span>Stand 20.10.2026 19:45:12</span><span>Quellen: Controme 192.168.0.120 · VR 940 192.168.0.176</span><span>Normalbetrieb grau · Farbe = Abweichung</span></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <nav class="tabs" role="tablist" aria-label="Bereiche">
+    <button class="tab" role="tab" id="t-fb" aria-controls="p-fb" aria-selected="true">Regelung FB <span class="badge">15 Räume</span></button>
+    <button class="tab" role="tab" id="t-wp" aria-controls="p-wp" aria-selected="false">Regelung WP <span class="badge warn">1</span></button>
+    <button class="tab" role="tab" id="t-sh" aria-controls="p-sh" aria-selected="false">Steuerung Shelly <span class="badge">geplant</span></button>
+  </nav>
+
+  <!-- ===================================================== Reiter 1: Fußbodenheizung (Controme) -->
+  <section class="pane" role="tabpanel" id="p-fb" aria-labelledby="t-fb">
+    <div>
+      <div class="lvl">Lage <span>– was jetzt wichtig ist</span></div>
+      <div class="kpis">
+        <div class="kpi"><div class="k">Räume im Sollbereich (±0,5 K)</div><div class="v num">4 <small>von 8</small></div><div class="s">EG mit Sensor; OG ohne Raumsensor</div></div>
+        <div class="kpi"><div class="k">Größte Abweichung</div><div class="v num">−2,3 <small>K</small></div><div class="s">Gästetoilette 17,7 / 20,0 °C</div></div>
+        <div class="kpi"><div class="k">Rücklauf Mittel</div><div class="v num">21,6 <small>°C</small></div><div class="s">9 Heizkreise, Spanne 20,9–22,3</div></div>
+        <div class="kpi plan"><div class="k">Vorlauf</div><div class="v">Fühler wird eingebaut</div><div class="s">Controme vtr/ liefert noch {}</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="lvl">Räume <span>– Abweichung als Balken, Farbe erst bei veralteten Daten</span></div>
+      <div class="scroll"><table>
+        <thead><tr><th>Raum</th><th class="n">Ist °C</th><th class="n">Soll °C</th><th>Abweichung</th><th class="n">Feuchte</th><th>Szene</th><th class="n">Datenalter</th></tr></thead>
+        <tbody>
+          <tr class="floor"><td colspan="7">Erdgeschoss</td></tr>
+          <tr><td>Wohn- und Esszimmer</td><td class="n">19,3</td><td class="n">20,5</td><td><span class="bar"><i style="width:52%"></i></span> <span class="dim num">−1,2</span></td><td class="n dim">–</td><td>FB - EG - Tag</td><td class="n">2 min</td></tr>
+          <tr><td>Küche</td><td class="n">21,0</td><td class="n">20,0</td><td><span class="bar"><i style="width:43%"></i></span> <span class="dim num">+1,0</span></td><td class="n">53 %</td><td>FB - EG - Tag</td><td class="n">4 min</td></tr>
+          <tr><td>Bad</td><td class="n">20,4</td><td class="n">21,0</td><td><span class="bar"><i style="width:26%"></i></span> <span class="dim num">−0,6</span></td><td class="n">73 %</td><td>FB - EG - Tag</td><td class="n">9 min</td></tr>
+          <tr><td>Schlafzimmer</td><td class="n">19,0</td><td class="n">20,0</td><td><span class="bar"><i style="width:43%"></i></span> <span class="dim num">−1,0</span></td><td class="n dim">–</td><td>FB - EG - Tag</td><td class="n">11 min</td></tr>
+          <tr><td>Gästezimmer</td><td class="n">19,1</td><td class="n">19,0</td><td><span class="bar"><i style="width:4%"></i></span> <span class="dim num">+0,1</span></td><td class="n dim">–</td><td>FB - EG - Tag</td><td class="n">14 min</td></tr>
+          <tr><td>Flur</td><td class="n">19,5</td><td class="n">19,5</td><td><span class="bar"><i style="width:0"></i></span> <span class="dim num">±0,0</span></td><td class="n dim">–</td><td>FB - EG - Tag</td><td class="n"><span class="tag warn">52 min</span></td></tr>
+          <tr><td>Gästetoilette</td><td class="n">17,7</td><td class="n">20,0</td><td><span class="bar"><i style="width:100%"></i></span> <span class="dim num">−2,3</span></td><td class="n dim">–</td><td>FB - EG - Tag</td><td class="n">6 min</td></tr>
+          <tr><td>Eingang Keltenstr.</td><td class="n">17,1</td><td class="n">19,0</td><td><span class="bar"><i style="width:83%"></i></span> <span class="dim num">−1,9</span></td><td class="n dim">–</td><td>FB - EG - Tag</td><td class="n">3 min</td></tr>
+          <tr class="floor"><td colspan="7">Obergeschoss – ohne Raumsensoren, nur Sollwerte</td></tr>
+          <tr class="dim"><td>Bad OG · Büro OG · Esszimmer OG · Flur OG · Küche OG · Schlafzimmer OG · Treppenhaus OG</td><td class="n">–</td><td class="n">19,5–22</td><td>–</td><td class="n">–</td><td>FB - OG</td><td class="n">–</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card"><h3>Raumtemperaturen, 24 h</h3>
+        <svg viewBox="0 0 420 140" width="100%" role="img" aria-label="Beispielverlauf Raumtemperaturen">
+          <g stroke="var(--line)" stroke-width="1"><line x1="34" y1="20" x2="414" y2="20"/><line x1="34" y1="60" x2="414" y2="60"/><line x1="34" y1="100" x2="414" y2="100"/></g>
+          <text x="4" y="24">21°</text><text x="4" y="64">19°</text><text x="4" y="104">17°</text>
+          <polyline fill="none" stroke="var(--chart)" stroke-width="2" points="34,70 90,66 150,58 210,52 270,56 330,62 390,58 414,57"/>
+          <polyline fill="none" stroke="var(--ink-3)" stroke-width="1.5" points="34,92 90,90 150,84 210,80 270,86 330,90 390,88 414,87"/>
+          <circle cx="414" cy="57" r="3" fill="var(--chart)"/>
+          <text x="34" y="132">00</text><text x="214" y="132">12</text><text x="396" y="132">jetzt</text>
+        </svg>
+        <div class="src">Ein Raum hervorgehoben, übrige grau – Auswahl per Klick in der Tabelle.</div>
+      </div>
+      <div class="card"><h3>Rücklauf je Heizkreis</h3>
+        <div class="scroll"><table>
+          <thead><tr><th>Kreis</th><th class="n">°C</th><th>Verlauf 6 h</th></tr></thead>
+          <tbody>
+            <tr><td>Bereich 1 (Wohnen)</td><td class="n">22,3</td><td><svg viewBox="0 0 80 16" width="80" height="16"><polyline fill="none" stroke="var(--ink-3)" stroke-width="1.5" points="0,12 20,10 40,9 60,7 80,6"/></svg></td></tr>
+            <tr><td>Küche</td><td class="n">21,9</td><td><svg viewBox="0 0 80 16" width="80" height="16"><polyline fill="none" stroke="var(--ink-3)" stroke-width="1.5" points="0,11 20,10 40,10 60,8 80,8"/></svg></td></tr>
+            <tr><td>Bad EG</td><td class="n">21,6</td><td><svg viewBox="0 0 80 16" width="80" height="16"><polyline fill="none" stroke="var(--ink-3)" stroke-width="1.5" points="0,9 20,9 40,10 60,9 80,9"/></svg></td></tr>
+            <tr><td colspan="3" class="dim">… 6 weitere Kreise</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== Reiter 2: Wärmepumpe (EEBUS) -->
+  <section class="pane" role="tabpanel" id="p-wp" aria-labelledby="t-wp" hidden>
+    <div>
+      <div class="lvl">Lage <span>– Betriebszustand der Vaillant-Anlage über EEBUS</span></div>
+      <div class="kpis">
+        <div class="kpi"><div class="k">Leistungsaufnahme</div><div class="v num">12 <small>W</small></div><div class="s">Bereitschaft</div></div>
+        <div class="kpi"><div class="k">Warmwasser Ist / Soll</div><div class="v num">54 <small>/ 55 °C</small></div><div class="s">Automatik · keine Schnellladung</div></div>
+        <div class="kpi"><div class="k">Heizzone 1 Ist / Soll</div><div class="v num">20 <small>/ 21 °C</small></div><div class="s">Heizbetrieb aus · Inbetriebnahme 21.10.</div></div>
+        <div class="kpi warn"><div class="k">Außentemperatur</div><div class="v">Fühler fehlt</div><div class="s">VR 940 meldet „error“ – noch nicht angeschlossen</div></div>
+        <div class="kpi"><div class="k">Leistungsbegrenzung § 14a</div><div class="v" style="font-size:16px;padding-block:4px">nicht aktiv</div><div class="s">Failsafe 2 h</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="lvl">Betriebsarten <span>– Zustände als Schalter-Anzeige, kein Bedienelement</span></div>
+      <div class="chips">
+        <span class="chip">Warmwasser: <b>Automatik</b></span>
+        <span class="chip">Heizen Zone 1: <b>Aus</b></span>
+        <span class="chip">Schnellladung: <b>inaktiv</b></span>
+        <span class="chip">EEBUS: <b>verbunden</b> seit 19:20</span>
+        <span class="chip warn">Energie (kWh): <b>nicht geliefert</b> – eigener WP-Zähler folgt</span>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card"><h3>Leistung und Warmwasser, 24 h</h3>
+        <svg viewBox="0 0 420 150" width="100%" role="img" aria-label="Beispielverlauf Leistung und Warmwasser">
+          <g stroke="var(--line)"><line x1="40" y1="20" x2="380" y2="20"/><line x1="40" y1="70" x2="380" y2="70"/><line x1="40" y1="120" x2="380" y2="120"/></g>
+          <text x="2" y="24">2 kW</text><text x="2" y="74">1 kW</text><text x="10" y="124">0</text>
+          <text x="386" y="24">60°</text><text x="386" y="124">40°</text>
+          <path d="M40,120 L150,120 L156,40 L196,38 L202,120 L300,120 L306,44 L330,42 L336,120 L380,120 Z" fill="var(--accent-soft)" stroke="none"/>
+          <polyline fill="none" stroke="var(--chart)" stroke-width="1.5" points="40,120 150,120 156,40 196,38 202,120 300,120 306,44 330,42 336,120 380,120"/>
+          <polyline fill="none" stroke="var(--chart-2)" stroke-width="2" points="40,44 150,52 196,30 260,38 330,30 380,36"/>
+          <text x="40" y="142">00</text><text x="206" y="142">12</text><text x="352" y="142">jetzt</text>
+        </svg>
+        <div class="src">Fläche: Leistungsaufnahme (Takten sichtbar). Linie: Warmwasser. Ab 21.10. mit echtem Heizbetrieb.</div>
+      </div>
+      <div class="card"><h3>Ereignisse</h3>
+        <div class="scroll"><table>
+          <thead><tr><th>Zeit</th><th>Ereignis</th></tr></thead>
+          <tbody>
+            <tr><td class="n">19:36</td><td>Außenfühler meldet „error“</td></tr>
+            <tr><td class="n">19:20</td><td>EEBUS-Kopplung bestätigt (myVAILLANT-App)</td></tr>
+            <tr><td class="n">18:48</td><td>EEBUS-Adapter gestartet</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== Reiter 3: Shelly -->
+  <section class="pane" role="tabpanel" id="p-sh" aria-labelledby="t-sh" hidden>
+    <div>
+      <div class="lvl">Lage <span>– Verbraucher und Schaltzustände (Phase 5 lesend, Phase 8 schaltend)</span></div>
+      <div class="kpis">
+        <div class="kpi plan"><div class="k">Leistung aller Shellys</div><div class="v">nach Einbindung</div><div class="s">Summe + größte Verbraucher</div></div>
+        <div class="kpi plan"><div class="k">Eingeschaltet</div><div class="v">– von 11</div><div class="s">Schaltzustand je Kanal</div></div>
+        <div class="kpi plan"><div class="k">Nicht erreichbar</div><div class="v">–</div><div class="s">WLAN-Geräte mit Datenalter</div></div>
+      </div>
+    </div>
+    <div>
+      <div class="lvl">Geräte <span>– per mDNS im Heimnetz gefunden, Namen und Zuordnung folgen mit dem Inventar</span></div>
+      <div class="devs" id="devs"></div>
+    </div>
+    <div class="card">
+      <h3>Schalten (ab Phase 8)</h3>
+      <p class="lock"><svg viewBox="0 0 12 12"><rect x="2" y="5.5" width="8" height="5.5"/><path d="M4 5.5V4a2 2 0 0 1 4 0v1.5"/></svg>Gesperrt. Schaltbefehle laufen später über den Steuerdienst: Anmeldung, Bestätigungsschritt, Rückmeldung vom Gerät, Zeitlimit und Journal. Ein Klick allein schaltet nie.</p>
+    </div>
+  </section>
+
+  <!-- ===================================================== Begründung -->
+  <section class="why">
+    <h2>Warum so – und wie es sich umsetzen lässt</h2>
+    <div class="cols">
+      <div>
+        <h3>Angewandte Regeln</h3>
+        <ul>
+          <li><b>Grau ist normal, Farbe heißt Abweichung</b> (Leitstand-Norm ISA-101). Dauerhaft grüne Kacheln stumpfen ab; hier fällt nur der Außenfühler auf.</li>
+          <li><b>Status ohne Farbe lesbar:</b> Punkt = in Ordnung, Raute = Hinweis, Quadrat = Störung, gestrichelt = geplant.</li>
+          <li><b>Feste Kopfzeile</b> in allen Reitern: die fünf Teilsysteme, ihr Zustand und das Datenalter. Der Reiter-Zähler zeigt Hinweise auch im nicht gewählten Bereich.</li>
+          <li><b>Lage → Verlauf → Details</b> in jedem Reiter: wenige Kennzahlen oben, Verläufe darunter, Tabellen zuletzt.</li>
+          <li><b>Fehlende Werte bleiben sichtbar fehlend</b> („Fühler fehlt“, „–“), nie 0. Inaktive oder geplante Teile sind gestrichelt statt ausgeblendet.</li>
+          <li><b>Lesen und Bedienen getrennt:</b> Betriebsarten als Anzeige; Schalten nur später, mit Bestätigung.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Umsetzung (Vorschlag, noch offen)</h3>
+        <p><b>A – Grafana 12.4 mit Reitern:</b> Die „dynamischen Dashboards“ bringen horizontale Reiter. Sie sind öffentliche Vorschau und brauchen zwei Feature-Schalter (<span style="font-family:var(--f-data)">dashboardNewLayouts</span>, <span style="font-family:var(--f-data)">kubernetesDashboards</span>) und ein neues Dashboard-Format. Die Kopfzeile wäre eine Statuszeile über den Reitern. Gestaltung nur begrenzt frei (Farben, Schrift, Status-Formen).</p>
+        <p><b>B – Eigene Leitstand-Seite</b> unter https://192.168.0.172:8443/ (wie dieser Entwurf), Daten aus InfluxDB über einen kleinen Lesedienst; Grafana bleibt für tiefe Auswertungen verlinkt. Volle Gestaltungsfreiheit, später auch der richtige Ort für die Schaltbestätigung (Phase 8).</p>
+        <p>Empfehlung: <b>B für den Leitstand, Grafana für Analysen.</b> A ist schneller, bleibt aber in Grafanas Optik und hängt an einer Vorschau-Funktion.</p>
+      </div>
+    </div>
+    <div class="src">Quellen:
+      <a href="https://control.com/technical-articles/going-gray/">Going Gray: A New HMI Standard (control.com)</a> ·
+      <a href="https://open-exam-prep.com/study-guides/isa-cap/system-design-hmi-alarms-enterprise/hmi-design-isa101">HMI &amp; High-Performance Graphics (ISA-101)</a> ·
+      <a href="https://grafana.com/whats-new/2025-04-10-dynamic-dashboards/">Grafana: Dynamic dashboards</a> ·
+      <a href="https://linuxiac.com/grafana-12-4-observability-platform-released-with-dynamic-dashboards/">Grafana 12.4 mit dynamischen Dashboards</a> ·
+      <a href="https://iifiir.org/fr/fridoc/application-des-principes-d-experience-utilisateur-ux-aux-batiments-a-34221">UX-Prinzipien für Gebäude-Dashboards (IIFIIR)</a> ·
+      <a href="https://odr.chalmers.se/items/89e8870f-20ef-4ee3-b152-b31f0fd0706a/full">Chalmers: Anzeigen an Wärmepumpen</a> ·
+      <a href="https://github.com/SpengeSec/Genergy-Dashboard">Genergy Dashboard (Energiefluss, inaktive Geräte ausblenden)</a>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  var devs=document.getElementById('devs');
+  for(var i=1;i<=11;i++){
+    var d=document.createElement('div'); d.className='dev';
+    d.innerHTML='<div class="nm">shelly-'+String(i).padStart(2,'0')+' · Name folgt</div>'+
+      '<div class="row"><span>Leistung</span><span>– W</span></div>'+
+      '<div class="row"><span>Zustand</span><span>–</span></div>'+
+      '<div class="row"><span>Zuordnung</span><span>Stromkreis offen</span></div>';
+    devs.appendChild(d);
+  }
+  var map={fb:'t-fb',wp:'t-wp',shelly:'t-sh'};
+  var tabs=[].slice.call(document.querySelectorAll('.tab'));
+  function show(id){
+    tabs.forEach(function(t){
+      var on=t.id===id; t.setAttribute('aria-selected',on?'true':'false'); t.tabIndex=on?0:-1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden=!on;
+    });
+    try{localStorage.setItem('ems-tab',id)}catch(e){}
+  }
+  tabs.forEach(function(t,i){
+    t.addEventListener('click',function(){show(t.id)});
+    t.addEventListener('keydown',function(e){
+      if(e.key==='ArrowRight'||e.key==='ArrowLeft'){var n=tabs[(i+(e.key==='ArrowRight'?1:tabs.length-1))%tabs.length];show(n.id);n.focus()}
+    });
+  });
+  var h=(location.hash||'').replace('#',''); var start=map[h];
+  if(!start){try{start=localStorage.getItem('ems-tab')}catch(e){}}
+  show(start&&document.getElementById(start)?start:'t-fb');
+})();
+</script>
