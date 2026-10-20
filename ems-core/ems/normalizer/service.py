@@ -37,6 +37,8 @@ class Normalizer:
         try:
             if source == "controme" and stream == "temps":
                 telemetry, states, quality = controme.normalize(raw, self.mappings["controme_temps"])
+            elif source == "controme" and stream == "vtr":
+                telemetry, states, quality = controme.normalize_vtr(raw, self.mappings["controme_vtr"])
             elif source == "controme" and stream == "info":
                 states = [{"asset_id": "controme_miniserver", "name": "Controme Miniserver", "source": "controme",
                            "received_at": raw["received_at"], "software_date": raw["payload"].get("sw-date"),

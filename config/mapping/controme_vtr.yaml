@@ -1,0 +1,23 @@
+# Mapping Controme /get/json/v1/<haus>/vtr/  (Vorlauftemperatur je Regelung)
+# STAND 20.10.2026: Endpunkt liefert {} – in Controme ist keine Vorlaufregelung/kein Vorlauffühler
+# eingerichtet. Zuordnung nach Controme-API-Doku (Felder name/ist/soll/offset), an echten Daten
+# NOCH UNGEPRÜFT -> bei erster echter Antwort Fixture aufzeichnen und Test ergänzen.
+profile: controme_vtr
+mapping_version: 1
+source: controme
+stream: vtr
+asset_prefix: controme_vorlauf_          # + Nummer der Regelung
+point_prefix: haus.heizung
+telemetry:
+  - key: ist
+    quantity: flow_temperature
+    role: flow_actual
+  - key: soll
+    quantity: flow_temperature_setpoint
+    role: flow_setpoint
+  - key: offset
+    quantity: flow_temperature_offset
+    role: flow_offset
+    unit: K
+defaults: {medium: heat, unit: degC, measurement_kind: device_reported}
+known_keys: [name, ist, soll, offset, ziel, zieltemperatur, modus, mode]

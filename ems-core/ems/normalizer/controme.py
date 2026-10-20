@@ -101,3 +101,29 @@ def normalize(raw: dict, mapping: dict) -> tuple[list[dict], list[dict], list[di
                 telemetry.append(_telemetry(sensor_cfg["telemetry"], prefix, s_asset, s_name, value, measured,
                                             received, ver, {**tags, "room_asset_id": asset}))
     return telemetry, states, quality
+
+
+def normalize_vtr(raw: dict, mapping: dict) -> tuple[list[dict], list[dict], list[dict]]:
+    """Controme vtr/ (Vorlauftemperatur je Regelung). Leere Antwort {} = keine Regelung eingerichtet -> nichts."""
+    received = parse_iso(raw["received_at"])
+    payload = raw["payload"]
+    if not isinstance(payload, dict):
+        return [], [], [{"source": "controme", "kind": "schema_error", "detail": "vtr ist kein Objekt"}]
+    telemetry, quality = [], []
+    for reg_id, reg in payload.items():
+        if not isinstance(reg, dict):
+            quality.append({"source": "controme", "kind": "schema_error", "detail": f"vtr {reg_id}: kein Objekt"})
+            continue
+        unknown = sorted(set(reg) - set(mapping["known_keys"]))
+        if unknown:
+            quality.append({"source": "controme", "kind": "unknown_keys", "detail": f"vtr {reg_id}: {unknown}"})
+        asset = f"{mapping['asset_prefix']}{_slug(str(reg_id))}"
+        name = str(reg.get("name") or f"Vorlauf {reg_id}").strip()
+        for item in mapping["telemetry"]:
+            value = _num(reg.get(item["key"]))
+            if value is None:
+                continue
+            spec = {**mapping["defaults"], **item}
+            telemetry.append(_telemetry(spec, mapping["point_prefix"], asset, name, value, received, received,
+                                        mapping["mapping_version"], {}))
+    return telemetry, [], quality
