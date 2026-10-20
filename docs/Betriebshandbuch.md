@@ -49,7 +49,7 @@ Controme-Miniserver 192.168.0.120 ──HTTP, nur lesend, 60 s──▶ ems-cont
 | `ems-influxdb` | InfluxDB 2.7.12, kein Host-Port | `data/influxdb`, `data/influxdb-config` |
 | `ems-grafana` | Grafana 12.4.1, Dashboards aus `config/grafana/dashboards` (im Git, in der Oberfläche nicht änderbar) | `data/grafana` |
 | `ems-proxy` | Caddy 2.10.2, HTTPS mit eigener LAN-CA | `data/caddy` |
-| `ems-controme-adapter` | ems-core, Rolle `controme-adapter` | – |
+| `ems-controme-adapter` | ems-core, Rolle `controme-adapter`: temps/ alle 60 s, vtr/ (Vorlauf) alle 5 min, info/ stündlich | – |
 | `ems-normalizer` | ems-core, Rolle `normalizer`, Mapping `config/mapping/*.yaml` | – |
 | `ems-writer` | ems-core, Rolle `writer` | `data/writer/buffer.sqlite` |
 
@@ -159,4 +159,5 @@ docker exec ems-backup ems-backup snapshots   # vorhandene Stände
 | 3 | Backup Stufe 2: OneDrive – zurückgestellt | Entscheidung Nutzer |
 | 4 | Optischer Zähler (Haus) und **eigener WP-Zähler** | Zählermodelle, Lesekopf |
 | 5 | Shelly/Tasmota lesend | Geräteinventar |
+| – | Vorlauftemperatur aus Controme `vtr/` – Abfrage läuft, liefert {} bis der vorhandene Vorlauffühler eingebaut und in Controme als Regelung angelegt ist; danach Mapping `controme_vtr.yaml` an echten Daten prüfen | Einbau Fühler |
 | 9 | Vaillant (VR 921 / VRC 720/3, Wärmemengenzähler) | WP-Detaildaten |
