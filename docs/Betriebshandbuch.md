@@ -120,7 +120,7 @@ docker exec ems-mosquitto mosquitto_sub -h localhost -u ems_admin -P "$(cat secr
 
 ---
 
-## 8. Datensicherung (Phase 3, seit 20.10.2026)
+## 7. Datensicherung (Phase 3, seit 20.10.2026)
 
 | Stufe | Ziel | Wann | Stand |
 |---|---|---|---|
@@ -152,11 +152,11 @@ docker exec ems-backup ems-backup snapshots   # vorhandene Stände
 
 ---
 
-## 7. Offene Punkte / nächste Phasen
+## 8. Offene Punkte / nächste Phasen
 
 | Phase | Inhalt | Wartet auf |
 |---|---|---|
-| 3 | Backup Stufe 2: OneDrive | einmalige OneDrive-Anmeldung (siehe Kap. 8) |
+| 3 | Backup Stufe 2: OneDrive | einmalige OneDrive-Anmeldung (siehe Kap. 7) |
 | 4 | Optischer Zähler (Haus) und **eigener WP-Zähler** | Zählermodelle, Lesekopf |
 | 5 | Shelly/Tasmota lesend | Geräteinventar |
 | 9 | Vaillant (VR 921 / VRC 720/3, Wärmemengenzähler) | WP-Detaildaten |
