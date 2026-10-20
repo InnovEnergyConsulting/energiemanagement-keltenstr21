@@ -1,0 +1,75 @@
+# Mapping Controme /get/json/v1/<haus>/temps/  ->  ems/v1/telemetry + ems/v1/state
+# Anforderungen Kap. 7: stabile IDs (Raum-ID von Controme), Anzeigename separat,
+# fehlende Werte werden NICHT zu 0, Messzeit (UTC) und Empfangszeit getrennt.
+profile: controme_temps
+mapping_version: 1
+source: controme
+stream: temps
+timezone_device: Europe/Berlin          # "letzte_uebertragung" kommt als Ortszeit
+
+room:
+  asset_prefix: controme_raum_          # + Controme-Raum-ID, z. B. controme_raum_23
+  point_prefix: haus.heizung            # point_id = <prefix>.<asset_id>.<medium>.<quantity>
+  telemetry:
+    - key: temperatur
+      quantity: temperature
+      role: room_actual
+      medium: room_climate
+      unit: degC
+      measurement_kind: measured
+      time_from: room_sensor            # Messzeit = letzte Übertragung des Raumtemperatursensors
+    - key: luftfeuchte
+      quantity: relative_humidity
+      role: room_actual
+      medium: room_climate
+      unit: percent
+      measurement_kind: measured
+      time_from: room_sensor
+    - key: solltemperatur
+      quantity: temperature_setpoint
+      role: setpoint_effective
+      medium: room_climate
+      unit: degC
+      measurement_kind: device_reported
+    - key: perm_solltemperatur
+      quantity: temperature_setpoint_permanent
+      role: setpoint_permanent
+      medium: room_climate
+      unit: degC
+      measurement_kind: device_reported
+    - key: total_offset
+      quantity: temperature_offset
+      role: offset_total
+      medium: room_climate
+      unit: K
+      measurement_kind: device_reported
+    - key: next_temperature
+      quantity: temperature_setpoint_next
+      role: setpoint_next
+      medium: room_climate
+      unit: degC
+      measurement_kind: device_reported
+  state:                                # Text-/Zustandswerte -> ems/v1/state/<asset>
+    current_temperaturszene_name: scene
+    next_temperaturszene_name: next_scene
+    next_due_time: next_change_at
+    betriebsart: mode
+    is_temporary_mode: temporary
+    mode_end_datetime: temporary_until
+  # Schema-Prüfung: alles andere wird als "unbekannter Schlüssel" gemeldet (Controme-Zweig "development")
+  known_keys: [betriebsart, current_temperaturszene_name, id, is_temporary_mode, luftfeuchte,
+               mode_end_datetime, name, next_due_time, next_due_time_rel, next_temperature,
+               next_temperaturszene_name, offsets, perm_solltemperatur, remaining_time, sensoren,
+               solltemperatur, temperatur, total_offset]
+  required_keys: [id, name, temperatur, solltemperatur, sensoren]
+
+sensor:                                 # Nicht-Raumsensoren, z. B. Rücklauftemperaturen je Heizkreis
+  asset_prefix: controme_sensor_        # + bereinigte Sensorkennung (1-Wire-/Funk-ID)
+  include_room_sensors: false           # Raumsensoren stecken bereits in "temperatur" des Raums
+  telemetry:
+    quantity: temperature
+    role: return_flow
+    medium: heat
+    unit: degC
+    measurement_kind: measured
+  known_keys: [beschreibung, letzte_uebertragung, name, raumtemperatursensor, wert]

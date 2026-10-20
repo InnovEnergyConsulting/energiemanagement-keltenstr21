@@ -1,0 +1,16 @@
+# Grafana liest mit einem reinen Lese-Token (erzeugt beim ersten InfluxDB-Start).
+apiVersion: 1
+datasources:
+  - name: EMS InfluxDB
+    uid: ems-influx
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    isDefault: true
+    editable: false
+    jsonData:
+      version: Flux
+      organization: keltenstr21
+      defaultBucket: ems_detail
+    secureJsonData:
+      token: $__file{/run/ems-secrets/influx-tokens/grafana_token}

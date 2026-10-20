@@ -1,0 +1,29 @@
+# EMS – einziger Web-Einstieg, HTTPS mit eigener LAN-Zertifizierungsstelle (tls internal).
+# Stammzertifikat für Browser/Handy: data/caddy/caddy/pki/authorities/local/root.crt
+{
+	admin off
+	skip_install_trust
+	# Aufruf per IP sendet kein SNI -> ohne Vorgabe findet Caddy kein Zertifikat (TLS internal error)
+	default_sni 192.168.0.172
+}
+
+https://192.168.0.172:8443 {
+	tls internal
+
+	redir / /grafana/ 302
+
+	handle /grafana* {
+		reverse_proxy grafana:3000
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+		-Server
+	}
+	log {
+		output stdout
+		format console
+	}
+}

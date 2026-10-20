@@ -1,0 +1,33 @@
+# Broker-Rechte – Grundsatz "Lesen vor Schreiben" (Umsetzungskonzept 2.5):
+# Bis Phase 8 hat KEIN Konto Schreibrecht auf ems/v1/command/#. Mosquitto verweigert alles,
+# was hier nicht ausdrücklich erlaubt ist.
+#
+# Topic-Schema (Anforderungen Kap. 7):
+#   ems/v1/raw/<quelle>/<strom>          Rohdaten der Adapter (+ Empfangszeit)
+#   ems/v1/telemetry/<asset>/<quantity>  normalisierte Messwerte
+#   ems/v1/state/<asset>                 Zustände (Szene, Betriebsart …)
+#   ems/v1/availability/<asset|quelle>   online/offline (retained, Last Will)
+#   ems/v1/quality/<quelle>              Schemaabweichungen, unbekannte Schlüssel
+#   ems/v1/command/<asset>/request|result   gesperrt bis Phase 8
+
+# Wartung/Fehlersuche: nur lesen
+user ems_admin
+topic read #
+
+user controme_adapter
+topic write ems/v1/raw/controme/#
+topic readwrite ems/v1/availability/controme
+
+user normalizer
+topic read ems/v1/raw/#
+topic write ems/v1/telemetry/#
+topic write ems/v1/state/#
+topic write ems/v1/quality/#
+topic readwrite ems/v1/availability/normalizer
+
+user writer
+topic read ems/v1/raw/#
+topic read ems/v1/telemetry/#
+topic read ems/v1/state/#
+topic read ems/v1/quality/#
+topic read ems/v1/availability/#

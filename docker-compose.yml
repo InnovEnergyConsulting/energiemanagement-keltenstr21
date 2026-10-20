@@ -1,0 +1,190 @@
+# Energiemanagement Keltenstr. 21 – Compose-Kern (Phasen 0–2, lesend)
+# Konzept: docs/Umsetzungskonzept.md · Anforderungen: docs/Anforderungen.md
+#
+# Grundsätze (Anforderungen Kap. 3):
+# - feste Image-Versionen, kein "latest"; InfluxDB bewusst OSS 2.7
+# - Ports nur an 192.168.0.172 (Docker umgeht UFW); InfluxDB ohne Host-Port
+# - Zugangsdaten aus ./secrets (chmod 600, nicht im Git), keine GPU, eigene Speicherlimits
+# - Lesen vor Schreiben: kein Dienst darf auf ems/v1/command/# schreiben (Broker-ACL)
+#
+# Erststart:  scripts/init-secrets.sh  &&  docker compose up -d --build
+
+name: ems
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+x-ems-core: &ems-core
+  image: ems-core:local          # gebaut vom Dienst controme-adapter (ein Build für alle Rollen)
+  restart: unless-stopped
+  logging: *logging
+  user: "1000:1000"
+  environment:
+    TZ: Europe/Berlin
+    EMS_MQTT_HOST: mosquitto
+    EMS_MQTT_PORT: "1883"
+    EMS_SECRETS_DIR: /run/ems-secrets
+  volumes:
+    - ./secrets:/run/ems-secrets:ro
+    - ./config/mapping:/app/mapping:ro
+  depends_on:
+    mosquitto: { condition: service_healthy }
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0.22
+    container_name: ems-mosquitto
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 128m
+    ports:
+      - "192.168.0.172:1883:1883"   # Geräte ohne TLS (eigene Konten + ACL)
+      - "192.168.0.172:8883:8883"   # Standard für Geräte: MQTT über TLS
+    volumes:
+      - ./config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./config/mosquitto/acl:/mosquitto/config/acl:ro
+      - ./secrets/mosquitto/passwd:/mosquitto/config/passwd:ro
+      - ./secrets/mqtt-tls:/mosquitto/tls:ro
+      - ./data/mosquitto:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 1883"]
+      interval: 60s
+      start_period: 10s
+      start_interval: 2s
+      timeout: 5s
+      retries: 5
+    networks: [backend, device]
+
+  influxdb:
+    image: influxdb:2.7.12
+    container_name: ems-influxdb
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 1g
+    user: "1000:1000"
+    environment:
+      TZ: UTC
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD_FILE: /run/ems-secrets/influx_admin_password
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN_FILE: /run/ems-secrets/influx_admin_token
+      DOCKER_INFLUXDB_INIT_ORG: keltenstr21
+      DOCKER_INFLUXDB_INIT_BUCKET: ems_detail
+      DOCKER_INFLUXDB_INIT_RETENTION: 400d
+      INFLUXD_REPORTING_DISABLED: "true"
+    volumes:
+      - ./data/influxdb:/var/lib/influxdb2
+      - ./data/influxdb-config:/etc/influxdb2
+      - ./config/influxdb/init:/docker-entrypoint-initdb.d:ro
+      - ./secrets:/run/ems-secrets:ro
+      - ./secrets/influx-tokens:/run/influx-tokens
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [backend]
+
+  grafana:
+    image: grafana/grafana:12.4.1
+    container_name: ems-grafana
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 512m
+    user: "1000:1000"
+    environment:
+      TZ: Europe/Berlin
+      GF_SERVER_ROOT_URL: https://192.168.0.172:8443/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/ems-secrets/grafana_admin_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_DATE_FORMATS_DEFAULT_TIMEZONE: Europe/Berlin
+      GF_USERS_DEFAULT_LANGUAGE: de-DE
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"     # keine Plugin-Downloads aus dem Internet
+    volumes:
+      - ./data/grafana:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/var/lib/grafana-dashboards:ro
+      - ./secrets:/run/ems-secrets:ro
+    depends_on:
+      influxdb: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health | grep -q ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks: [backend, frontend]
+
+  proxy:
+    image: caddy:2.10.2
+    container_name: ems-proxy
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 64m
+    ports:
+      - "192.168.0.172:8443:8443"
+    volumes:
+      - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy:/data
+    depends_on: [grafana]
+    networks: [frontend]
+
+  # ---------------------------------------------------------------- Eigenentwicklung (ems-core)
+  controme-adapter:
+    <<: *ems-core
+    build: { context: ., dockerfile: ems-core/Dockerfile }
+    container_name: ems-controme-adapter
+    command: ["controme-adapter"]
+    mem_limit: 64m
+    environment:
+      TZ: Europe/Berlin
+      EMS_MQTT_HOST: mosquitto
+      EMS_MQTT_PORT: "1883"
+      EMS_SECRETS_DIR: /run/ems-secrets
+      EMS_CONTROME_URL: http://192.168.0.120
+      EMS_CONTROME_HOUSE_ID: "1"
+      EMS_CONTROME_INTERVAL_S: "60"
+    networks: [backend, device]
+
+  normalizer:
+    <<: *ems-core
+    container_name: ems-normalizer
+    command: ["normalizer"]
+    mem_limit: 128m
+    networks: [backend]
+
+  writer:
+    <<: *ems-core
+    container_name: ems-writer
+    command: ["writer"]
+    mem_limit: 128m
+    environment:
+      TZ: Europe/Berlin
+      EMS_MQTT_HOST: mosquitto
+      EMS_MQTT_PORT: "1883"
+      EMS_SECRETS_DIR: /run/ems-secrets
+      EMS_INFLUX_URL: http://influxdb:8086
+      EMS_INFLUX_ORG: keltenstr21
+      EMS_BUFFER_PATH: /var/lib/ems-writer/buffer.sqlite
+      EMS_BUFFER_MAX_ROWS: "500000"
+    volumes:
+      - ./secrets:/run/ems-secrets:ro
+      - ./config/mapping:/app/mapping:ro
+      - ./data/writer:/var/lib/ems-writer
+    depends_on:
+      mosquitto: { condition: service_healthy }
+      influxdb: { condition: service_healthy }
+    networks: [backend]
+
+networks:
+  backend:
+    internal: true        # Datenbank, Broker, Datenkern: kein Internet, kein LAN
+  frontend: {}
+  device: {}              # Adapter mit LAN-Zugang zu Geräten (Controme, später Zähler/Shelly)

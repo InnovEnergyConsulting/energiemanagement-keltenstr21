@@ -1,0 +1,905 @@
+[
+    {
+        "hausname": "",
+        "etagenname": "Erdgeschoss",
+        "id": 1,
+        "raeume": [
+            {
+                "total_offset": -0.2,
+                "next_temperature": 19.5,
+                "offsets": {
+                    "Wetter": {
+                        "raum": -0.2,
+                        "haus": 0.0
+                    },
+                    "Heizflächenoptimierung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "api": {},
+                    "Automatischer hydraulischer Abgleich Test": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Funksollregelung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Backupcontrol": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Dynamischer hydraulischer Maximal-Abgleich": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "luftfeuchte": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    }
+                },
+                "next_due_time_rel": 635.0,
+                "next_temperaturszene_name": "FB - EG - Nacht",
+                "remaining_time": "",
+                "solltemperatur": 20.0,
+                "temperatur": 18.980392156862745,
+                "current_temperaturszene_name": "FB - EG - Tag",
+                "id": 1,
+                "mode_end_datetime": "",
+                "name": "Schlafzimmer ",
+                "sensoren": [
+                    {
+                        "raumtemperatursensor": false,
+                        "letzte_uebertragung": "20.10.2026 12:09",
+                        "name": "28_56_80_5d_10_00_00_46",
+                        "wert": 22.25,
+                        "beschreibung": "Rücklauf Schlafzimmer"
+                    },
+                    {
+                        "raumtemperatursensor": true,
+                        "letzte_uebertragung": "20.10.2026 12:04",
+                        "name": "05:2a:49:3f",
+                        "wert": {
+                            "Helligkeit": null,
+                            "Relative Luftfeuchte": null,
+                            "Bewegung": null,
+                            "Temperatur": 18.980392156862745
+                        },
+                        "beschreibung": "Raumtemperatur Schlafzimmer EG"
+                    }
+                ],
+                "next_due_time": "2026-10-20 22:30",
+                "is_temporary_mode": false,
+                "betriebsart": "Heating",
+                "perm_solltemperatur": 20.0,
+                "luftfeuchte": "kein aktueller Wert vorhanden"
+            },
+            {
+                "total_offset": -0.22800000000000006,
+                "next_temperature": 20.0,
+                "offsets": {
+                    "Wetter": {
+                        "raum": -0.2,
+                        "haus": 0.0
+                    },
+                    "Heizflächenoptimierung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "api": {},
+                    "Automatischer hydraulischer Abgleich Test": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Funksollregelung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Backupcontrol": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Dynamischer hydraulischer Maximal-Abgleich": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "luftfeuchte": {
+                        "raum": -0.028000000000000042,
+                        "haus": 0.0
+                    }
+                },
+                "next_due_time_rel": 635.0,
+                "next_temperaturszene_name": "FB - EG - Nacht",
+                "remaining_time": "",
+                "solltemperatur": 20.0,
+                "temperatur": 20.64,
+                "current_temperaturszene_name": "FB - EG - Tag",
+                "id": 2,
+                "mode_end_datetime": "",
+                "name": "Küche",
+                "sensoren": [
+                    {
+                        "raumtemperatursensor": false,
+                        "letzte_uebertragung": "20.10.2026 12:09",
+                        "name": "28_73_f6_5b_10_00_00_e3",
+                        "wert": 22.81,
+                        "beschreibung": "Rücklauf Küche"
+                    },
+                    {
+                        "raumtemperatursensor": true,
+                        "letzte_uebertragung": "20.10.2026 12:06",
+                        "name": "05:9a:17:3f",
+                        "wert": {
+                            "Helligkeit": null,
+                            "Relative Luftfeuchte": 52.800000000000004,
+                            "Bewegung": null,
+                            "Temperatur": 20.64
+                        },
+                        "beschreibung": "Raumtemparatur und Luftfeuchte Küche EG"
+                    }
+                ],
+                "next_due_time": "2026-10-20 22:30",
+                "is_temporary_mode": false,
+                "betriebsart": "Heating",
+                "perm_solltemperatur": 20.0,
+                "luftfeuchte": 52.800000000000004
+            },
+            {
+                "total_offset": -0.2,
+                "next_temperature": 19.5,
+                "offsets": {
+                    "Wetter": {
+                        "raum": -0.2,
+                        "haus": 0.0
+                    },
+                    "Heizflächenoptimierung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "api": {},
+                    "Automatischer hydraulischer Abgleich Test": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Funksollregelung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Backupcontrol": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Dynamischer hydraulischer Maximal-Abgleich": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "luftfeuchte": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    }
+                },
+                "next_due_time_rel": 635.0,
+                "next_temperaturszene_name": "FB - EG - Nacht",
+                "remaining_time": "",
+                "solltemperatur": 19.0,
+                "temperatur": 19.137254901960784,
+                "current_temperaturszene_name": "FB - EG - Tag",
+                "id": 3,
+                "mode_end_datetime": "",
+                "name": "Gästezimmer",
+                "sensoren": [
+                    {
+                        "raumtemperatursensor": false,
+                        "letzte_uebertragung": "20.10.2026 12:09",
+                        "name": "28_73_5f_5c_10_00_00_a5",
+                        "wert": 22.5,
+                        "beschreibung": "Rücklauf Gästezimmer"
+                    },
+                    {
+                        "raumtemperatursensor": true,
+                        "letzte_uebertragung": "20.10.2026 12:01",
+                        "name": "05:a3:de:53",
+                        "wert": {
+                            "Helligkeit": null,
+                            "Relative Luftfeuchte": null,
+                            "Bewegung": null,
+                            "Temperatur": 19.137254901960784
+                        },
+                        "beschreibung": "Raumtemperatur Gästezimmer EG"
+                    }
+                ],
+                "next_due_time": "2026-10-20 22:30",
+                "is_temporary_mode": false,
+                "betriebsart": "Heating",
+                "perm_solltemperatur": 19.0,
+                "luftfeuchte": "kein aktueller Wert vorhanden"
+            },
+            {
+                "total_offset": -0.43200000000000005,
+                "next_temperature": 21.5,
+                "offsets": {
+                    "Wetter": {
+                        "raum": -0.2,
+                        "haus": 0.0
+                    },
+                    "Heizflächenoptimierung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "api": {},
+                    "Automatischer hydraulischer Abgleich Test": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Funksollregelung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Backupcontrol": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Dynamischer hydraulischer Maximal-Abgleich": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "luftfeuchte": {
+                        "raum": -0.23200000000000004,
+                        "haus": 0.0
+                    }
+                },
+                "next_due_time_rel": 635.0,
+                "next_temperaturszene_name": "FB - EG - Nacht",
+                "remaining_time": "",
+                "solltemperatur": 21.0,
+                "temperatur": 20.36,
+                "current_temperaturszene_name": "FB - EG - Tag",
+                "id": 4,
+                "mode_end_datetime": "",
+                "name": "Bad",
+                "sensoren": [
+                    {
+                        "raumtemperatursensor": false,
+                        "letzte_uebertragung": "20.10.2026 12:09",
+                        "name": "28_b9_f3_5c_10_00_00_e7",
+                        "wert": 22.56,
+                        "beschreibung": "Rücklauf Bad EG"
+                    },
+                    {
+                        "raumtemperatursensor": true,
+                        "letzte_uebertragung": "20.10.2026 11:56",
+                        "name": "05:9a:16:f1",
+                        "wert": {
+                            "Helligkeit": null,
+                            "Relative Luftfeuchte": 73.2,
+                            "Bewegung": null,
+                            "Temperatur": 20.36
+                        },
+                        "beschreibung": "Raumtemperatur Bad EG"
+                    }
+                ],
+                "next_due_time": "2026-10-20 22:30",
+                "is_temporary_mode": false,
+                "betriebsart": "Heating",
+                "perm_solltemperatur": 21.0,
+                "luftfeuchte": 73.2
+            },
+            {
+                "total_offset": -0.2,
+                "next_temperature": 19.0,
+                "offsets": {
+                    "Wetter": {
+                        "raum": -0.2,
+                        "haus": 0.0
+                    },
+                    "Heizflächenoptimierung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "api": {},
+                    "Automatischer hydraulischer Abgleich Test": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Funksollregelung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Backupcontrol": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Dynamischer hydraulischer Maximal-Abgleich": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "luftfeuchte": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    }
+                },
+                "next_due_time_rel": 635.0,
+                "next_temperaturszene_name": "FB - EG - Nacht",
+                "remaining_time": "",
+                "solltemperatur": 19.5,
+                "temperatur": 19.45098039215686,
+                "current_temperaturszene_name": "FB - EG - Tag",
+                "id": 9,
+                "mode_end_datetime": "",
+                "name": "Flur",
+                "sensoren": [
+                    {
+                        "raumtemperatursensor": false,
+                        "letzte_uebertragung": "20.10.2026 12:09",
+                        "name": "28_07_7a_5d_10_00_00_44",
+                        "wert": 22.62,
+                        "beschreibung": "Rücklauf Flur"
+                    },
+                    {
+                        "raumtemperatursensor": true,
+                        "letzte_uebertragung": "20.10.2026 12:00",
+                        "name": "05:a3:df:6e",
+                        "wert": {
+                            "Helligkeit": null,
+                            "Relative Luftfeuchte": null,
+                            "Bewegung": null,
+                            "Temperatur": 19.45098039215686
+                        },
+                        "beschreibung": "Raumtemperatur Flur EG"
+                    }
+                ],
+                "next_due_time": "2026-10-20 22:30",
+                "is_temporary_mode": false,
+                "betriebsart": "Heating",
+                "perm_solltemperatur": 19.5,
+                "luftfeuchte": "kein aktueller Wert vorhanden"
+            },
+            {
+                "total_offset": -0.2,
+                "next_temperature": 19.5,
+                "offsets": {
+                    "Wetter": {
+                        "raum": -0.2,
+                        "haus": 0.0
+                    },
+                    "Heizflächenoptimierung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "api": {},
+                    "Automatischer hydraulischer Abgleich Test": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Funksollregelung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Backupcontrol": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Dynamischer hydraulischer Maximal-Abgleich": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "luftfeuchte": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    }
+                },
+                "next_due_time_rel": 635.0,
+                "next_temperaturszene_name": "FB - EG - Nacht",
+                "remaining_time": "",
+                "solltemperatur": 20.0,
+                "temperatur": 17.725490196078432,
+                "current_temperaturszene_name": "FB - EG - Tag",
+                "id": 10,
+                "mode_end_datetime": "",
+                "name": "Gästetoilette ",
+                "sensoren": [
+                    {
+                        "raumtemperatursensor": true,
+                        "letzte_uebertragung": "20.10.2026 12:00",
+                        "name": "05:2a:85:d9",
+                        "wert": {
+                            "Helligkeit": null,
+                            "Relative Luftfeuchte": null,
+                            "Bewegung": null,
+                            "Temperatur": 17.725490196078432
+                        },
+                        "beschreibung": "Raumtemparatur Gästetoilette"
+                    }
+                ],
+                "next_due_time": "2026-10-20 22:30",
+                "is_temporary_mode": false,
+                "betriebsart": "Heating",
+                "perm_solltemperatur": 20.0,
+                "luftfeuchte": "kein aktueller Wert vorhanden"
+            },
+            {
+                "total_offset": -0.2,
+                "next_temperature": 19.5,
+                "offsets": {
+                    "Wetter": {
+                        "raum": -0.2,
+                        "haus": 0.0
+                    },
+                    "Heizflächenoptimierung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "api": {},
+                    "Automatischer hydraulischer Abgleich Test": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Funksollregelung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Backupcontrol": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Dynamischer hydraulischer Maximal-Abgleich": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "luftfeuchte": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    }
+                },
+                "next_due_time_rel": 635.0,
+                "next_temperaturszene_name": "FB - EG - Nacht",
+                "remaining_time": "",
+                "solltemperatur": 19.0,
+                "temperatur": 17.568627450980394,
+                "current_temperaturszene_name": "FB - EG - Tag",
+                "id": 11,
+                "mode_end_datetime": "",
+                "name": "Eingang Keltenstr. ",
+                "sensoren": [
+                    {
+                        "raumtemperatursensor": true,
+                        "letzte_uebertragung": "20.10.2026 11:52",
+                        "name": "05:a3:de:8c",
+                        "wert": {
+                            "Helligkeit": null,
+                            "Relative Luftfeuchte": null,
+                            "Bewegung": null,
+                            "Temperatur": 17.568627450980394
+                        },
+                        "beschreibung": "Raumtemparatur Eingang EG"
+                    }
+                ],
+                "next_due_time": "2026-10-20 22:30",
+                "is_temporary_mode": false,
+                "betriebsart": "Heating",
+                "perm_solltemperatur": 19.0,
+                "luftfeuchte": "kein aktueller Wert vorhanden"
+            },
+            {
+                "total_offset": -0.2,
+                "next_temperature": 19.5,
+                "offsets": {
+                    "Wetter": {
+                        "raum": -0.2,
+                        "haus": 0.0
+                    },
+                    "Heizflächenoptimierung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "api": {},
+                    "Automatischer hydraulischer Abgleich Test": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Funksollregelung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Backupcontrol": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Dynamischer hydraulischer Maximal-Abgleich": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "luftfeuchte": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    }
+                },
+                "next_due_time_rel": 635.0,
+                "next_temperaturszene_name": "FB - EG - Nacht",
+                "remaining_time": "",
+                "solltemperatur": 20.5,
+                "temperatur": 19.294117647058822,
+                "current_temperaturszene_name": "FB - EG - Tag",
+                "id": 23,
+                "mode_end_datetime": "",
+                "name": "Wohn- und Esszimmer",
+                "sensoren": [
+                    {
+                        "raumtemperatursensor": false,
+                        "letzte_uebertragung": "20.10.2026 12:09",
+                        "name": "28_7b_a6_5d_10_00_00_de",
+                        "wert": 22.94,
+                        "beschreibung": "Rücklauf Bereich 1"
+                    },
+                    {
+                        "raumtemperatursensor": false,
+                        "letzte_uebertragung": "20.10.2026 12:09",
+                        "name": "28_f7_24_5c_10_00_00_8e",
+                        "wert": 22.94,
+                        "beschreibung": "Rücklauf Essbreich"
+                    },
+                    {
+                        "raumtemperatursensor": false,
+                        "letzte_uebertragung": "20.10.2026 12:09",
+                        "name": "28_d6_40_ff_0c_00_00_d1",
+                        "wert": 22.31,
+                        "beschreibung": "Rücklauf Bereich 2"
+                    },
+                    {
+                        "raumtemperatursensor": false,
+                        "letzte_uebertragung": "20.10.2026 12:09",
+                        "name": "28_6d_7e_5d_10_00_00_57",
+                        "wert": 22.56,
+                        "beschreibung": "Rücklauf Bereich 3"
+                    },
+                    {
+                        "raumtemperatursensor": true,
+                        "letzte_uebertragung": "20.10.2026 12:08",
+                        "name": "05:2a:85:86",
+                        "wert": {
+                            "Helligkeit": null,
+                            "Relative Luftfeuchte": null,
+                            "Bewegung": null,
+                            "Temperatur": 19.294117647058822
+                        },
+                        "beschreibung": "Master Thermometer "
+                    }
+                ],
+                "next_due_time": "2026-10-20 22:30",
+                "is_temporary_mode": false,
+                "betriebsart": "Heating",
+                "perm_solltemperatur": 20.5,
+                "luftfeuchte": "kein aktueller Wert vorhanden"
+            }
+        ]
+    },
+    {
+        "hausname": "",
+        "etagenname": "Obergeschoß",
+        "id": 3,
+        "raeume": [
+            {
+                "total_offset": -0.2,
+                "next_temperature": 20.0,
+                "offsets": {
+                    "Wetter": {
+                        "raum": -0.2,
+                        "haus": 0.0
+                    },
+                    "Heizflächenoptimierung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "api": {},
+                    "Automatischer hydraulischer Abgleich Test": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Funksollregelung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Backupcontrol": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Dynamischer hydraulischer Maximal-Abgleich": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    }
+                },
+                "next_due_time_rel": 635.0,
+                "next_temperaturszene_name": "FB - EG - Nacht",
+                "remaining_time": "",
+                "solltemperatur": 20.0,
+                "temperatur": null,
+                "current_temperaturszene_name": "FB - EG - Tag",
+                "id": 14,
+                "mode_end_datetime": "",
+                "name": "Küche OG",
+                "sensoren": [],
+                "next_due_time": "2026-10-20 22:30",
+                "is_temporary_mode": false,
+                "betriebsart": "Heating",
+                "perm_solltemperatur": 20.0,
+                "luftfeuchte": "kein Sensor vorhanden"
+            },
+            {
+                "total_offset": -0.2,
+                "next_temperature": 20.0,
+                "offsets": {
+                    "Wetter": {
+                        "raum": -0.2,
+                        "haus": 0.0
+                    },
+                    "Heizflächenoptimierung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "api": {},
+                    "Automatischer hydraulischer Abgleich Test": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Funksollregelung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Backupcontrol": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Dynamischer hydraulischer Maximal-Abgleich": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    }
+                },
+                "next_due_time_rel": 635.0,
+                "next_temperaturszene_name": "FB - EG - Nacht",
+                "remaining_time": "",
+                "solltemperatur": 21.0,
+                "temperatur": null,
+                "current_temperaturszene_name": "FB - EG - Tag",
+                "id": 15,
+                "mode_end_datetime": "",
+                "name": "Büro OG",
+                "sensoren": [],
+                "next_due_time": "2026-10-20 22:30",
+                "is_temporary_mode": false,
+                "betriebsart": "Heating",
+                "perm_solltemperatur": 21.0,
+                "luftfeuchte": "kein Sensor vorhanden"
+            },
+            {
+                "total_offset": -0.2,
+                "next_temperature": 19.0,
+                "offsets": {
+                    "Wetter": {
+                        "raum": -0.2,
+                        "haus": 0.0
+                    },
+                    "Heizflächenoptimierung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "api": {},
+                    "Automatischer hydraulischer Abgleich Test": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Funksollregelung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Backupcontrol": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Dynamischer hydraulischer Maximal-Abgleich": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    }
+                },
+                "next_due_time_rel": 635.0,
+                "next_temperaturszene_name": "FB - EG - Nacht",
+                "remaining_time": "",
+                "solltemperatur": 19.5,
+                "temperatur": null,
+                "current_temperaturszene_name": "FB - EG - Tag",
+                "id": 16,
+                "mode_end_datetime": "",
+                "name": "Schlafzimmer OG",
+                "sensoren": [],
+                "next_due_time": "2026-10-20 22:30",
+                "is_temporary_mode": false,
+                "betriebsart": "Heating",
+                "perm_solltemperatur": 19.5,
+                "luftfeuchte": "kein Sensor vorhanden"
+            },
+            {
+                "total_offset": -0.2,
+                "next_temperature": 20.0,
+                "offsets": {
+                    "Wetter": {
+                        "raum": -0.2,
+                        "haus": 0.0
+                    },
+                    "Heizflächenoptimierung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "api": {},
+                    "Automatischer hydraulischer Abgleich Test": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Funksollregelung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Backupcontrol": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Dynamischer hydraulischer Maximal-Abgleich": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    }
+                },
+                "next_due_time_rel": 635.0,
+                "next_temperaturszene_name": "FB - EG - Nacht",
+                "remaining_time": "",
+                "solltemperatur": 20.0,
+                "temperatur": null,
+                "current_temperaturszene_name": "FB - EG - Tag",
+                "id": 17,
+                "mode_end_datetime": "",
+                "name": "Esszimmer OG",
+                "sensoren": [],
+                "next_due_time": "2026-10-20 22:30",
+                "is_temporary_mode": false,
+                "betriebsart": "Heating",
+                "perm_solltemperatur": 20.0,
+                "luftfeuchte": "kein Sensor vorhanden"
+            },
+            {
+                "total_offset": -0.2,
+                "next_temperature": 20.0,
+                "offsets": {
+                    "Wetter": {
+                        "raum": -0.2,
+                        "haus": 0.0
+                    },
+                    "Heizflächenoptimierung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "api": {},
+                    "Automatischer hydraulischer Abgleich Test": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Funksollregelung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Backupcontrol": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Dynamischer hydraulischer Maximal-Abgleich": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    }
+                },
+                "next_due_time_rel": 635.0,
+                "next_temperaturszene_name": "FB - EG - Nacht",
+                "remaining_time": "",
+                "solltemperatur": 22.0,
+                "temperatur": null,
+                "current_temperaturszene_name": "FB - EG - Tag",
+                "id": 18,
+                "mode_end_datetime": "",
+                "name": "Bad OG",
+                "sensoren": [],
+                "next_due_time": "2026-10-20 22:30",
+                "is_temporary_mode": false,
+                "betriebsart": "Heating",
+                "perm_solltemperatur": 22.0,
+                "luftfeuchte": "kein Sensor vorhanden"
+            },
+            {
+                "total_offset": -0.2,
+                "next_temperature": 19.5,
+                "offsets": {
+                    "Wetter": {
+                        "raum": -0.2,
+                        "haus": 0.0
+                    },
+                    "Heizflächenoptimierung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "api": {},
+                    "Automatischer hydraulischer Abgleich Test": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Funksollregelung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Backupcontrol": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Dynamischer hydraulischer Maximal-Abgleich": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    }
+                },
+                "next_due_time_rel": 635.0,
+                "next_temperaturszene_name": "FB - EG - Nacht",
+                "remaining_time": "",
+                "solltemperatur": 20.0,
+                "temperatur": null,
+                "current_temperaturszene_name": "FB - EG - Tag",
+                "id": 19,
+                "mode_end_datetime": "",
+                "name": "Flur OG",
+                "sensoren": [],
+                "next_due_time": "2026-10-20 22:30",
+                "is_temporary_mode": false,
+                "betriebsart": "Heating",
+                "perm_solltemperatur": 20.0,
+                "luftfeuchte": "kein Sensor vorhanden"
+            },
+            {
+                "total_offset": -0.2,
+                "next_temperature": 19.0,
+                "offsets": {
+                    "Wetter": {
+                        "raum": -0.2,
+                        "haus": 0.0
+                    },
+                    "Heizflächenoptimierung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "api": {},
+                    "Automatischer hydraulischer Abgleich Test": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Funksollregelung": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Backupcontrol": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    },
+                    "Dynamischer hydraulischer Maximal-Abgleich": {
+                        "raum": 0.0,
+                        "haus": 0.0
+                    }
+                },
+                "next_due_time_rel": 635.0,
+                "next_temperaturszene_name": "FB - EG - Nacht",
+                "remaining_time": "",
+                "solltemperatur": 20.0,
+                "temperatur": null,
+                "current_temperaturszene_name": "FB - EG - Tag",
+                "id": 20,
+                "mode_end_datetime": "",
+                "name": "Treppenhaus OG",
+                "sensoren": [],
+                "next_due_time": "2026-10-20 22:30",
+                "is_temporary_mode": false,
+                "betriebsart": "Heating",
+                "perm_solltemperatur": 20.0,
+                "luftfeuchte": "kein Sensor vorhanden"
+            }
+        ]
+    }
+]

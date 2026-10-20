@@ -1,0 +1,783 @@
+{
+ "uid": "ems-heizung-raeume",
+ "title": "Heizung – Räume (Controme)",
+ "tags": [
+  "ems",
+  "controme",
+  "heizung"
+ ],
+ "timezone": "Europe/Berlin",
+ "schemaVersion": 41,
+ "version": 1,
+ "editable": false,
+ "refresh": "1m",
+ "time": {
+  "from": "now-24h",
+  "to": "now"
+ },
+ "graphTooltip": 1,
+ "templating": {
+  "list": [
+   {
+    "name": "raum",
+    "label": "Raum",
+    "type": "query",
+    "datasource": {
+     "type": "influxdb",
+     "uid": "ems-influx"
+    },
+    "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"ems_detail\", tag: \"name\", predicate: (r) => r._measurement == \"telemetry\" and r.medium == \"room_climate\", start: -30d)",
+    "refresh": 2,
+    "sort": 1,
+    "current": {
+     "text": "Wohn- und Esszimmer",
+     "value": "Wohn- und Esszimmer"
+    },
+    "includeAll": false,
+    "multi": false
+   }
+  ]
+ },
+ "panels": [
+  {
+   "type": "row",
+   "title": "Zustand der Datenquelle",
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 0
+   },
+   "collapsed": false,
+   "panels": [],
+   "datasource": {
+    "type": "influxdb",
+    "uid": "ems-influx"
+   },
+   "id": 1
+  },
+  {
+   "type": "stat",
+   "title": "Controme erreichbar",
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 0,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "ems-influx"
+     },
+     "query": "from(bucket: \"ems_events\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"availability\" and r.component == \"controme\" and r._field == \"online\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "1": {
+         "text": "online",
+         "color": "green"
+        },
+        "0": {
+         "text": "OFFLINE",
+         "color": "red"
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value"
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "ems-influx"
+   },
+   "id": 2
+  },
+  {
+   "type": "stat",
+   "title": "Letzter Abruf vor",
+   "description": "Minuten seit der letzten erfolgreichen Antwort des Controme-Miniservers (Soll: alle 60 s).",
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 6,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "ems-influx"
+     },
+     "query": "from(bucket: \"ems_raw\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"raw\" and r.source == \"controme\" and r.stream == \"temps\" and r._field == \"http_status\")\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: uint(v: now()) - uint(v: r._time)) / 60000000000.0}))"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "m",
+     "decimals": 1,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 3
+       },
+       {
+        "color": "red",
+        "value": 10
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none"
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "ems-influx"
+   },
+   "id": 3
+  },
+  {
+   "type": "stat",
+   "title": "Antwortzeit Controme",
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 12,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "ems-influx"
+     },
+     "query": "from(bucket: \"ems_raw\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"raw\" and r.source == \"controme\" and r.stream == \"temps\" and r._field == \"duration_ms\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ms",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 2000
+       },
+       {
+        "color": "red",
+        "value": 8000
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "mean"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area"
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "ems-influx"
+   },
+   "id": 4
+  },
+  {
+   "type": "stat",
+   "title": "Qualitätsmeldungen (7 Tage)",
+   "description": "Schemaabweichungen und unbekannte Felder – z. B. nach einem Controme-Update.",
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 18,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "ems-influx"
+     },
+     "query": "from(bucket: \"ems_events\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => r._measurement == \"quality\" and r._field == \"detail\")\n  |> group()\n  |> count()\n  |> yield(name: \"anzahl\")"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "noValue": "0",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none"
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "ems-influx"
+   },
+   "id": 5
+  },
+  {
+   "type": "row",
+   "title": "Räume aktuell",
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 5
+   },
+   "collapsed": false,
+   "panels": [],
+   "datasource": {
+    "type": "influxdb",
+    "uid": "ems-influx"
+   },
+   "id": 6
+  },
+  {
+   "type": "table",
+   "title": "Räume – Ist, Soll, Datenalter",
+   "description": "Datenalter = Minuten seit der letzten Übertragung des Raumsensors. Räume ohne Sensor (OG) zeigen bewusst keinen Ist-Wert statt 0.",
+   "gridPos": {
+    "h": 12,
+    "w": 24,
+    "x": 0,
+    "y": 6
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "ems-influx"
+     },
+     "query": "import \"join\"\nbase = from(bucket: \"ems_detail\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r._field == \"value\" and r.source == \"controme\" and r.medium == \"room_climate\")\n  |> last()\nvals = base\n  |> group()\n  |> keep(columns: [\"asset_id\", \"name\", \"floor\", \"quantity\", \"_value\"])\n  |> pivot(rowKey: [\"asset_id\", \"name\", \"floor\"], columnKey: [\"quantity\"], valueColumn: \"_value\")\nage = base\n  |> filter(fn: (r) => r.quantity == \"temperature\")\n  |> group()\n  |> map(fn: (r) => ({asset_id: r.asset_id, alter_min: float(v: uint(v: now()) - uint(v: r._time)) / 60000000000.0}))\njoin.left(left: vals, right: age, on: (l, r) => l.asset_id == r.asset_id, as: (l, r) => ({l with alter_min: r.alter_min}))\n  |> sort(columns: [\"floor\", \"name\"])\n"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "asset_id": true,
+       "temperature_setpoint_permanent": true,
+       "result": true,
+       "table": true
+      },
+      "indexByName": {
+       "floor": 0,
+       "name": 1,
+       "temperature": 2,
+       "temperature_setpoint": 3,
+       "temperature_offset": 4,
+       "temperature_setpoint_next": 5,
+       "relative_humidity": 6,
+       "alter_min": 7
+      },
+      "renameByName": {
+       "floor": "Etage",
+       "name": "Raum",
+       "temperature": "Ist",
+       "temperature_setpoint": "Soll",
+       "temperature_offset": "Offset",
+       "relative_humidity": "Luftfeuchte",
+       "temperature_setpoint_next": "Nächster Soll",
+       "alter_min": "Datenalter"
+      }
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "align": "auto"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": "Ist|Soll|Nächster Soll"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "celsius"
+       },
+       {
+        "id": "decimals",
+        "value": 1
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Offset"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "none"
+       },
+       {
+        "id": "decimals",
+        "value": 2
+       },
+       {
+        "id": "displayName",
+        "value": "Offset (K)"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Luftfeuchte"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "percent"
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Datenalter"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "m"
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background",
+         "mode": "basic"
+        }
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "green",
+           "value": null
+          },
+          {
+           "color": "orange",
+           "value": 45
+          },
+          {
+           "color": "red",
+           "value": 120
+          }
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "footer": {
+     "show": false
+    }
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "ems-influx"
+   },
+   "id": 7
+  },
+  {
+   "type": "row",
+   "title": "Verläufe",
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 18
+   },
+   "collapsed": false,
+   "panels": [],
+   "datasource": {
+    "type": "influxdb",
+    "uid": "ems-influx"
+   },
+   "id": 8
+  },
+  {
+   "type": "timeseries",
+   "title": "Raumtemperaturen (Ist)",
+   "gridPos": {
+    "h": 10,
+    "w": 24,
+    "x": 0,
+    "y": 19
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "ems-influx"
+     },
+     "query": "from(bucket: \"ems_detail\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r._field == \"value\" and r.quantity == \"temperature\" and r.role == \"room_actual\")\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"name\"])"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "decimals": 1,
+     "custom": {
+      "lineWidth": 2,
+      "spanNulls": 3600000,
+      "showPoints": "never"
+     },
+     "displayName": "${__field.labels.name}"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "min",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "ems-influx"
+   },
+   "id": 9
+  },
+  {
+   "type": "timeseries",
+   "title": "Ist und Soll – ${raum}",
+   "gridPos": {
+    "h": 10,
+    "w": 12,
+    "x": 0,
+    "y": 29
+   },
+   "repeat": null,
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "ems-influx"
+     },
+     "query": "from(bucket: \"ems_detail\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r._field == \"value\" and r.name == \"${raum}\")\n  |> filter(fn: (r) => r.quantity == \"temperature\" or r.quantity == \"temperature_setpoint\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value, _field: if r.quantity == \"temperature\" then \"Ist\" else \"Soll\"}))\n  |> group(columns: [\"_field\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "decimals": 1,
+     "custom": {
+      "lineWidth": 2,
+      "spanNulls": 3600000
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Soll"
+      },
+      "properties": [
+       {
+        "id": "custom.lineInterpolation",
+        "value": "stepAfter"
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          10,
+          10
+         ]
+        }
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "orange"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Ist"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "blue"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "ems-influx"
+   },
+   "id": 10
+  },
+  {
+   "type": "timeseries",
+   "title": "Rücklauftemperaturen der Heizkreise",
+   "description": "Controme-Rücklauffühler je Heizkreis (Medium Wärme).",
+   "gridPos": {
+    "h": 10,
+    "w": 12,
+    "x": 12,
+    "y": 29
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "ems-influx"
+     },
+     "query": "from(bucket: \"ems_detail\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"telemetry\" and r._field == \"value\" and r.role == \"return_flow\")\n  |> group(columns: [\"name\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"name\"])"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "decimals": 1,
+     "custom": {
+      "lineWidth": 1,
+      "spanNulls": 3600000
+     },
+     "displayName": "${__field.labels.name}"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "ems-influx"
+   },
+   "id": 11
+  },
+  {
+   "type": "row",
+   "title": "Betrieb",
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 39
+   },
+   "collapsed": false,
+   "panels": [],
+   "datasource": {
+    "type": "influxdb",
+    "uid": "ems-influx"
+   },
+   "id": 12
+  },
+  {
+   "type": "table",
+   "title": "Qualitätsmeldungen (30 Tage)",
+   "gridPos": {
+    "h": 8,
+    "w": 24,
+    "x": 0,
+    "y": 40
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "ems-influx"
+     },
+     "query": "from(bucket: \"ems_events\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"quality\" and r._field == \"detail\")\n  |> group()\n  |> keep(columns: [\"_time\", \"source\", \"kind\", \"_value\"])\n  |> sort(columns: [\"_time\"], desc: true)"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "renameByName": {
+       "_time": "Zeit",
+       "source": "Quelle",
+       "kind": "Art",
+       "_value": "Meldung"
+      }
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "noValue": "keine Meldungen"
+    },
+    "overrides": []
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm"
+   },
+   "datasource": {
+    "type": "influxdb",
+    "uid": "ems-influx"
+   },
+   "id": 13
+  }
+ ],
+ "description": "Phase 2: Controme lesend – Ist-/Solltemperaturen, Rücklauf, Datenalter und Qualität."
+}

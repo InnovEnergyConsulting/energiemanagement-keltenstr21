@@ -1,0 +1,10 @@
+# Geheimnisse (Passwörter, Tokens, TLS-Schlüssel) – nie ins Git.
+# Sicherung: Vaultwarden (Werte) + verschlüsseltes Backup (Phase 3).
+/secrets/
+# Laufzeitdaten der Container (Datenbank, Broker-Persistenz, Puffer, Grafana)
+/data/
+/auto-sync.log
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/

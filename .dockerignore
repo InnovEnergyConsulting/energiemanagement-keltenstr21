@@ -1,0 +1,8 @@
+# Nie in den Build-Kontext: Geheimnisse und Laufzeitdaten
+secrets
+data
+.git
+docs
+inventory
+**/__pycache__
+**/.pytest_cache
