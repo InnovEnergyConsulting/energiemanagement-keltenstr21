@@ -21,7 +21,10 @@ Windows: Doppelklick → *Zertifikat installieren* → *Lokaler Computer* → *V
 Firefox nutzt einen eigenen Speicher (Einstellungen → Zertifikate → Importieren).
 
 **Zugangsdaten** liegen ausschließlich in `secrets/` (chmod 600, nicht im Git). Sicherungskopie der Werte in
-Vaultwarden, Sammlung „EMS Keltenstr. 21“. Neu erzeugen: `scripts/init-secrets.sh` (überschreibt nichts Vorhandenes).
+Vaultwarden, Sammlung „EMS Keltenstr. 21“.
+
+**Code-Backup:** GitHub `InnovEnergyConsulting/energiemanagement-keltenstr21` (privat), Cron alle 30 min
+(`scripts/backup-to-github.sh`, nur Push – lokal ist maßgeblich; `secrets/` und `data/` sind ausgeschlossen). Neu erzeugen: `scripts/init-secrets.sh` (überschreibt nichts Vorhandenes).
 
 ---
 
@@ -124,4 +127,3 @@ docker exec ems-mosquitto mosquitto_sub -h localhost -u ems_admin -P "$(cat secr
 | 4 | Optischer Zähler (Haus) und **eigener WP-Zähler** | Zählermodelle, Lesekopf |
 | 5 | Shelly/Tasmota lesend | Geräteinventar |
 | 9 | Vaillant (VR 921 / VRC 720/3, Wärmemengenzähler) | WP-Detaildaten |
-| – | GitHub-Repo `InnovEnergyConsulting/energiemanagement-keltenstr21` + Auto-Backup | Repo anlegen bzw. `gh auth login` (Anmeldung abgelaufen) |
