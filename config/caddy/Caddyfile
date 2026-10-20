@@ -5,6 +5,14 @@
 	skip_install_trust
 	# Aufruf per IP sendet kein SNI -> ohne Vorgabe findet Caddy kein Zertifikat (TLS internal error)
 	default_sni 192.168.0.172
+	# Wer "192.168.0.172:8443" ohne https:// eintippt (Handy!), schickt HTTP an den HTTPS-Port ->
+	# statt Fehlermeldung automatisch auf https umleiten (gilt für 8443 und 8444)
+	servers {
+		listener_wrappers {
+			http_redirect
+			tls
+		}
+	}
 }
 
 https://192.168.0.172:8443 {

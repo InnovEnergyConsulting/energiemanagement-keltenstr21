@@ -123,6 +123,7 @@ tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 .dev .nm{font-family:var(--f-data);font-size:12px;overflow-wrap:anywhere}
 .dev .row{display:flex;justify-content:space-between;gap:8px;color:var(--ink-3);font-size:12px;margin-top:6px}
 .dev .row span:last-child{color:var(--ink-2);text-align:right}
+.dev .row.befund span{text-align:left;color:var(--ink-3);font-size:11.5px;border-top:1px dashed var(--line);padding-top:6px;width:100%}
 .lock{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--ink-2);margin:0;max-width:75ch}
 .lock svg{width:14px;height:14px;stroke:var(--ink-2);fill:none;flex:none;margin-top:3px}
 .foot{color:var(--ink-3);font-size:12px;padding-bottom:28px;display:flex;flex-wrap:wrap;gap:6px 18px}

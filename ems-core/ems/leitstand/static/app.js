@@ -401,7 +401,8 @@
         '<div class="row"><span>Modell</span><span>' + esc(d.modell || "–") + "</span></div>" +
         '<div class="row"><span>Adresse</span><span class="num">' + esc(d.ip || "–") + "</span></div>" +
         '<div class="row"><span>Firmware</span><span>' + esc(d.firmware || "–") + "</span></div>" +
-        '<div class="row"><span>Stromkreis</span><span>' + esc(d.stromkreis || "offen") + "</span></div></div>";
+        '<div class="row"><span>Stromkreis</span><span>' + esc(d.stromkreis || "offen") + "</span></div>" +
+        (d.befund ? '<div class="row befund"><span>' + esc(d.befund) + "</span></div>" : "") + "</div>";
     }).join("") || '<div class="empty">Noch keine Geräte im Inventar.</div>';
   }
 

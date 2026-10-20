@@ -1,13 +1,25 @@
 # Shelly-Geräteinventar (Leitstand, Reiter "Steuerung Shelly")
-# Gefunden per mDNS (_shelly._tcp) am 20.10.2026. Noch NICHT eingebunden (Phase 5 lesend, Phase 8 schaltend).
-# Bitte ergänzen: zweck (z. B. "Gartenhaus Licht") und stromkreis – erscheint dann im Leitstand.
+# Gefunden per mDNS am 20.10.2026, Konfiguration am 20.10.2026 per RPC gelesen (nur lesend):
+#   Rohdaten: inventory/shelly-auslesung-2026-10-20/<ip>-<Methode>.json
+# Noch NICHT eingebunden (Phase 5 lesend, Phase 8 schaltend).
+# Bitte ergänzen: zweck (z. B. "Zirkulationspumpe") und stromkreis – erscheint dann im Leitstand.
+# Befund 20.10.: alle ohne Passwortschutz (auth_en=false), Shelly-Cloud an, MQTT aus, keine Gerätenamen vergeben.
 geraete:
-  - {name: shellypro1-34987aa76c8c,   modell: Shelly Pro 1,    ip: 192.168.0.190, firmware: "1.7.5", zweck: null, stromkreis: null}
-  - {name: shellypro1-34987aa798fc,   modell: Shelly Pro 1,    ip: 192.168.0.127, firmware: null,    zweck: null, stromkreis: null}
-  - {name: shellypro1-8c4f00d8fd68,   modell: Shelly Pro 1,    ip: 192.168.0.147, firmware: null,    zweck: null, stromkreis: null}
-  - {name: shellypro1-8c4f00d8feb8,   modell: Shelly Pro 1,    ip: 192.168.0.193, firmware: null,    zweck: null, stromkreis: null}
-  - {name: shellypro1-8c4f00d914c4,   modell: Shelly Pro 1,    ip: 192.168.0.186, firmware: "2.0.0", zweck: null, stromkreis: null}
-  - {name: shellypro1-ac15186be140,   modell: Shelly Pro 1,    ip: 192.168.0.189, firmware: null,    zweck: null, stromkreis: null}
-  - {name: shellypro1pm-8813bfda5e48, modell: Shelly Pro 1PM,  ip: 192.168.0.148, firmware: "1.4.0", zweck: null, stromkreis: null}
-  - {name: shellypro1pm-8813bfda92c0, modell: Shelly Pro 1PM,  ip: 192.168.0.124, firmware: null,    zweck: null, stromkreis: null}
-  - {name: shellypro1pm-ec62608c16fc, modell: Shelly Pro 1PM,  ip: 192.168.0.197, firmware: "2.0.0", zweck: null, stromkreis: null}
+  - {name: shellypro1pm-ec62608c16fc, modell: Shelly Pro 1PM (misst), ip: 192.168.0.197, firmware: "2.0.0", zweck: null, stromkreis: null,
+     befund: "Vermutlich die Pumpe: wird per Webhook von .190 und .189 ein-/ausgeschaltet; Zähler 68,4 kWh"}
+  - {name: shellypro1-34987aa76c8c,   modell: Shelly Pro 1,          ip: 192.168.0.190, firmware: "1.7.5", zweck: null, stromkreis: null,
+     befund: "Schaltet .197 mit ('Pumpe ein/aus'); Abschaltautomatik 15 min; Zeitplan aus 06:15 täglich"}
+  - {name: shellypro1-ac15186be140,   modell: Shelly Pro 1,          ip: 192.168.0.189, firmware: "1.7.5", zweck: null, stromkreis: null,
+     befund: "Schaltet .197 mit ('Start Pumpe'/'Pumpe aus'); Abschaltautomatik 15 min; Zeitplan aus 06:50 täglich"}
+  - {name: shellypro1-8c4f00d914c4,   modell: Shelly Pro 1,          ip: 192.168.0.186, firmware: "2.0.0", zweck: null, stromkreis: null,
+     befund: "Zeitplan: an 07:00 täglich, aus 21:00 (Mo–Fr) / 21:30 (Sa, So); derzeit EIN"}
+  - {name: shellypro1pm-8813bfda5e48, modell: Shelly Pro 1PM (misst), ip: 192.168.0.148, firmware: "1.4.0", zweck: null, stromkreis: null,
+     befund: "Zeitpläne aus 08:00 und 23:00 aktiv (Einschalt-Zeitpläne deaktiviert); Eingang EIN; Zähler 2,6 kWh"}
+  - {name: shellypro1pm-8813bfda92c0, modell: Shelly Pro 1PM (misst), ip: 192.168.0.124, firmware: "1.4.0", zweck: null, stromkreis: null,
+     befund: "Zeitplan aus 08:00 aktiv; Eingang EIN; Zähler 2,3 kWh; Zwilling von .148"}
+  - {name: shellypro1-34987aa798fc,   modell: Shelly Pro 1,          ip: 192.168.0.127, firmware: "1.3.3", zweck: null, stromkreis: null,
+     befund: "keine Zeitpläne/Webhooks; Firmware sehr alt"}
+  - {name: shellypro1-8c4f00d8fd68,   modell: Shelly Pro 1,          ip: 192.168.0.147, firmware: "2.0.0", zweck: null, stromkreis: null,
+     befund: "keine Zeitpläne/Webhooks; Modbus-Schnittstelle an"}
+  - {name: shellypro1-8c4f00d8feb8,   modell: Shelly Pro 1,          ip: 192.168.0.193, firmware: "1.7.5", zweck: null, stromkreis: null,
+     befund: "keine Zeitpläne/Webhooks"}

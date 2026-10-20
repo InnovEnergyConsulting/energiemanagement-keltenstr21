@@ -1,0 +1,1 @@
+{"jobs":[{"id":1,"enable":true,"timespec":"0 0 0 * * SUN,MON,TUE,WED,THU,FRI,SAT","calls":[{"method":"Shelly.Update","params":{"stage":"stable"},"origin":"shelly_service"}]}], "rev":1}
