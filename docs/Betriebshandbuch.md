@@ -117,13 +117,46 @@ docker exec ems-mosquitto mosquitto_sub -h localhost -u ems_admin -P "$(cat secr
 - Neue Quelle anbinden: Adapter veröffentlicht nach `ems/v1/raw/<quelle>/<strom>`, Mapping-YAML in
   `config/mapping/`, Parser im Normalizer, ACL-Eintrag, Beispiel-Payload als Test-Fixture.
 
+
+---
+
+## 8. Datensicherung (Phase 3, seit 20.10.2026)
+
+| Stufe | Ziel | Wann | Stand |
+|---|---|---|---|
+| 1 | USB-SSD Verbatim 512 GB, ext4 „EMS-BACKUP“, `/mnt/ems-backup` (fstab per UUID, `nofail`) | täglich 03:15 | aktiv |
+| 2 | OneDrive `Backups/EMS-Keltenstr21`, Kopie des restic-Repos (Ende-zu-Ende verschlüsselt) | direkt nach Stufe 1 | **wartet auf OneDrive-Anmeldung** |
+| Test | Wiederherstellung in eigenem Compose-Projekt `ems-restoretest` | monatlich am 1., 04:00 | 20.10.2026: 3087/3087 Messwerte identisch |
+
+**Inhalt jedes Snapshots:** konsistentes `influx backup` (alle Buckets, Tokens, Tasks) + `config/` + `secrets/` +
+Grafana-Datenbank + Broker-Persistenz + Caddy-CA + Writer-Puffer. Werkzeug: restic 0.18.1 im Container `ems-backup`
+(läuft als UID 1000; nur das restic-Programm hat das Leserecht `CAP_DAC_READ_SEARCH`).
+Aufbewahrung: 14 tägliche, 8 wöchentliche, 24 monatliche Stände; sonntags Prüfung von 5 % der Daten.
+
+**Der Schlüssel `secrets/restic_password` ist der einzige Weg an die Sicherung** – in Vaultwarden UND auf Papier
+aufbewahren. Geht er verloren, sind alle Sicherungen wertlos.
+
+Schutz gegen Fehlziel: Gesichert wird nur, wenn `/mnt/ems-backup/.ems-backup-ziel` existiert (sonst landete die
+Sicherung bei abgezogener Platte unbemerkt auf der System-SSD). Ergebnis jedes Laufs: Grafana → Tabelle „Datensicherung“.
+
+```bash
+docker exec ems-backup ems-backup now         # Sicherung sofort
+docker exec ems-backup ems-backup snapshots   # vorhandene Stände
+./scripts/restore-test.sh                     # Wiederherstellungstest von Hand
+```
+
+**Wiederherstellung im Ernstfall** (Server neu): Repo klonen, Platte einhängen, dann
+`restic -r /mnt/ems-backup/restic-ems restore latest --target /tmp/r` (Passwort aus Vaultwarden),
+`secrets/` und `data/` (außer influxdb) zurückkopieren, Compose starten, anschließend
+`influx restore --full /tmp/r/tmp/stage/influx` im InfluxDB-Container.
+
 ---
 
 ## 7. Offene Punkte / nächste Phasen
 
 | Phase | Inhalt | Wartet auf |
 |---|---|---|
-| 3 | Backup: restic → USB-SSD + verschlüsselt nach OneDrive | Formatierung der USB-SSD (sudo, Inhalt vorher klären), OneDrive-Freigabe |
+| 3 | Backup Stufe 2: OneDrive | einmalige OneDrive-Anmeldung (siehe Kap. 8) |
 | 4 | Optischer Zähler (Haus) und **eigener WP-Zähler** | Zählermodelle, Lesekopf |
 | 5 | Shelly/Tasmota lesend | Geräteinventar |
 | 9 | Vaillant (VR 921 / VRC 720/3, Wärmemengenzähler) | WP-Detaildaten |

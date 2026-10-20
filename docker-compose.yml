@@ -183,6 +183,34 @@ services:
       influxdb: { condition: service_healthy }
     networks: [backend]
 
+  # ---------------------------------------------------------------- Sicherung (Phase 3)
+  backup:
+    build: { context: ., dockerfile: backup/Dockerfile }
+    image: ems-backup:local
+    container_name: ems-backup
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 512m
+    user: "1000:1000"
+    cap_add: [DAC_READ_SEARCH]           # nur restic nutzt es (Datei-Capability), zum Lesen fremder Dateien
+    environment:
+      TZ: Europe/Berlin
+      EMS_BACKUP_TIME: "03:15"
+      EMS_CLOUD_PATH: Backups/EMS-Keltenstr21
+    volumes:
+      - /mnt/ems-backup:/backup                 # USB-SSD (fstab, nofail) – ohne Markierungsdatei kein Schreiben
+      - ./secrets:/run/ems-secrets:ro
+      - ./secrets/rclone:/config/rclone         # OneDrive-Zugang (rclone erneuert das Token selbst)
+      - ./config:/src/config:ro
+      - ./secrets:/src/secrets:ro
+      - ./data/grafana:/src/data-grafana:ro
+      - ./data/mosquitto:/src/data-mosquitto:ro
+      - ./data/caddy:/src/data-caddy:ro
+      - ./data/writer:/src/data-writer:ro
+    depends_on:
+      influxdb: { condition: service_healthy }
+    networks: [backend, device]               # backend: InfluxDB; device: Internet für OneDrive
+
 networks:
   backend:
     internal: true        # Datenbank, Broker, Datenkern: kein Internet, kein LAN

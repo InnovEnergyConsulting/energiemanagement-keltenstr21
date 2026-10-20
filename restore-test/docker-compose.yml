@@ -1,0 +1,44 @@
+# Wiederherstellungstest (Phase 3) – eigenes Compose-Projekt "ems-restoretest", völlig getrennt vom
+# Produktivsystem: eigenes Netz ohne Ports, Wegwerf-InfluxDB, Daten nur im Testordner auf der USB-SSD.
+# Aufruf ausschließlich über scripts/restore-test.sh
+name: ems-restoretest
+
+services:
+  restore:
+    image: ems-backup:local
+    user: "1000:1000"
+    cap_add: [DAC_READ_SEARCH]
+    entrypoint: ["sh", "-c"]
+    command: ["restic -r /backup/restic-ems restore latest --target /restore"]
+    environment:
+      RESTIC_PASSWORD_FILE: /run/ems-secrets/restic_password
+      RESTIC_CACHE_DIR: /backup/.restic-cache
+    volumes:
+      - /mnt/ems-backup:/backup
+      - ../secrets/restic_password:/run/ems-secrets/restic_password:ro
+      - ${RESTORE_DIR}:/restore
+    network_mode: none
+
+  influxdb-test:
+    image: influxdb:2.7.12
+    user: "1000:1000"
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: restoretest
+      DOCKER_INFLUXDB_INIT_PASSWORD: restoretest-wegwerf
+      DOCKER_INFLUXDB_INIT_ORG: restoretest
+      DOCKER_INFLUXDB_INIT_BUCKET: restoretest
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: restoretest-wegwerf-token
+    volumes:
+      - ${RESTORE_DIR}/influx-data:/var/lib/influxdb2
+      - ${RESTORE_DIR}/influx-config:/etc/influxdb2
+      - ${RESTORE_DIR}:/restore:ro
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 5s
+      retries: 30
+    networks: [isoliert]
+
+networks:
+  isoliert:
+    internal: true

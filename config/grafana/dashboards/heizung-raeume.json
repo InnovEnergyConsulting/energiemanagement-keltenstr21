@@ -735,8 +735,8 @@
    "title": "Qualitätsmeldungen (30 Tage)",
    "gridPos": {
     "h": 8,
-    "w": 24,
-    "x": 0,
+    "w": 12,
+    "x": 12,
     "y": 40
    },
    "targets": [
@@ -777,6 +777,110 @@
     "uid": "ems-influx"
    },
    "id": 13
+  },
+  {
+   "id": 14,
+   "type": "table",
+   "title": "Datensicherung",
+   "description": "Letzter Lauf je Ziel. USB-SSD täglich 03:15, OneDrive danach (sobald eingerichtet), Wiederherstellungstest monatlich am 1. um 04:00.",
+   "datasource": {
+    "type": "influxdb",
+    "uid": "ems-influx"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 40
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "influxdb",
+      "uid": "ems-influx"
+     },
+     "query": "from(bucket: \"ems_events\")\n  |> range(start: -60d)\n  |> filter(fn: (r) => r._measurement == \"backup\")\n  |> last()\n  |> pivot(rowKey: [\"_time\", \"target\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({Ziel: if r.target == \"usb\" then \"USB-SSD\" else if r.target == \"onedrive\" then \"OneDrive\" else \"Wiederherstellungstest\", Ergebnis: if r.ok == 1 then \"OK\" else \"FEHLER\", \"Vor (Std.)\": float(v: uint(v: now()) - uint(v: r._time)) / 3600000000000.0, Dauer_s: r.duration_s, Details: r.detail}))\n  |> group()"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Ergebnis"
+      },
+      "properties": [
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background",
+         "mode": "basic"
+        }
+       },
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "OK": {
+            "color": "green"
+           },
+           "FEHLER": {
+            "color": "red"
+           }
+          }
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Vor (Std.)"
+      },
+      "properties": [
+       {
+        "id": "decimals",
+        "value": 1
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-text"
+        }
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "green",
+           "value": null
+          },
+          {
+           "color": "orange",
+           "value": 26
+          },
+          {
+           "color": "red",
+           "value": 50
+          }
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm"
+   }
   }
  ],
  "description": "Phase 2: Controme lesend – Ist-/Solltemperaturen, Rücklauf, Datenalter und Qualität."

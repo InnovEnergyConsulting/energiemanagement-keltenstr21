@@ -14,7 +14,7 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 umask 077
-mkdir -p secrets/mosquitto secrets/mqtt-tls secrets/influx-tokens
+mkdir -p secrets/mosquitto secrets/mqtt-tls secrets/influx-tokens secrets/rclone
 
 gen() {  # gen <datei> – 32 Zeichen, nur URL-sichere Zeichen
   [ -s "secrets/$1" ] && return 0
@@ -25,6 +25,7 @@ gen() {  # gen <datei> – 32 Zeichen, nur URL-sichere Zeichen
 gen influx_admin_password
 gen influx_admin_token
 gen grafana_admin_password
+gen restic_password            # Schlüssel der Sicherung – OHNE ihn ist jedes Backup wertlos -> Vaultwarden + Papier!
 MQTT_USERS="ems_admin controme_adapter normalizer writer"
 for u in $MQTT_USERS; do gen "mqtt_$u"; done
 
