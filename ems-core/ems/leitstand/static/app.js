@@ -80,6 +80,8 @@
     if (s.stufig && s.vorher && (!pts.length || pts[0][0] > x0)) pts.unshift([x0, s.vorher[1]]);
     var segs = [], cur = [];
     pts.forEach(function (p, i) {
+      if (p[1] == null) { segs.push(cur); cur = []; return; }   // ausdrückliche Unterbrechung
+      if (i && pts[i - 1][1] == null) { cur.push(p); return; }
       if (i) {
         var prev = pts[i - 1], dt = p[0] - prev[0];
         if (dt > (s.stufig ? hold : gap)) { segs.push(cur); cur = []; }
@@ -163,7 +165,7 @@
   }
   function chartOpt(v, extra) {
     var o = { from: v.von, to: v.bis, gapMs: Math.max(3 * fensterMs(v.fenster), 5 * 6e4), holdMs: (v.halten_s || 21600) * 1000 };
-    for (var k in extra) o[k] = extra[k];
+    for (var k in extra) if (extra[k] !== undefined) o[k] = extra[k];
     return o;
   }
   function legend(el, items) {
@@ -400,8 +402,13 @@
   function renderStrom(st) {
     var h = "", p = st.leistung, b = st.bezug, per = st.perioden;
     if (st.hinweise.length) h += kpi(st.stufe, "Zustand", esc(st.hinweise[0]), st.verbindung.status ? "WattWächter " + st.verbindung.status : "");
-    h += p ? kpi("", p.wert >= 0 ? "Netzbezug jetzt" : "Einspeisung jetzt", num(Math.abs(p.wert), 0) + " <small>W</small>", "vor " + ago(p.alter_s))
-      : kpi("geplant", "Leistung jetzt", "nach PIN-Freischaltung", "ohne PIN liefert der Zähler nur Zählerstände");
+    var est = st.schaetzung || {}, le = est.letzter;
+    if (p) h += kpi("", p.wert >= 0 ? "Netzbezug jetzt" : "Einspeisung jetzt", num(Math.abs(p.wert), 0) + " <small>W</small>", "vor " + ago(p.alter_s));
+    else if (le) h += kpi(le.sicher ? "" : "unbekannt", "Ø-Leistung (geschätzt)", num(le.w, 0) + " <small>W</small>",
+      "1 kWh in " + le.minuten + " min, bis " + when(le.bis) + (est.obergrenze_w != null ? " · seitdem höchstens " + num(est.obergrenze_w, 0) + " W" : ""),
+      "Aus der Zeit zwischen zwei kWh-Sprüngen des Zählerstands berechnet (ohne PIN keine Momentanleistung). Unschärfe ±10 s je Sprung.");
+    else if (est.obergrenze_w != null) h += kpi("unbekannt", "Ø-Leistung (geschätzt)", "≤ " + num(est.obergrenze_w, 0) + " <small>W</small>", "seit letztem kWh-Sprung " + when(est.seit) + "; Schätzung ab dem 2. Sprung");
+    else h += kpi("geplant", "Ø-Leistung (geschätzt)", "wartet auf kWh-Sprünge", "erscheint nach zwei Sprüngen des Zählerstands");
     ["heute", "monat", "jahr"].forEach(function (k) {
       var x = per[k], lab = { heute: "Bezug heute", monat: "Bezug dieser Monat", jahr: "Bezug dieses Jahr" }[k];
       h += x ? kpi("", lab, kwh(x.kwh) + " <small>kWh</small>", "seit " + when(x.seit))
@@ -477,11 +484,30 @@
     }
     $("strom-bar-titel").textContent = "Netzbezug je " + (day ? "Tag" : "Stunde");
     $("strom-hinweis").textContent = "– Verbrauch aus Zählerdifferenzen" + (e && e.punkte.length && e.punkte.every(function (p) { return p[1] % 1 === 0; }) ? "; ohne PIN nur ganze kWh, Stundenwerte daher grob" : "");
-    barChart($("strom-chart-bars"), bars, { from: v.von, to: v.bis, label: "Netzbezug", minMax: 1, leer: "Noch keine Zählerstände im gewählten Zeitraum" });
+    var leer = "Noch keine Zählerstände im gewählten Zeitraum";
+    if (e && e.punkte.length) {
+      var p0 = e.vorher || e.punkte[0], p1 = e.punkte[e.punkte.length - 1];
+      leer = p1[1] > p0[1] ? "Noch kein abgeschlossener " + (day ? "Tag" : "Stundenwert") + " – Zuwachs bisher " + num(p1[1] - p0[1], 0) + " kWh"
+        : "Zählerstand seit " + when(new Date(p0[0]).toISOString()) + " unverändert bei " + num(p1[1], 0) + " kWh (Verbrauch < 1 kWh – ohne PIN nur ganze kWh)";
+    }
+    barChart($("strom-chart-bars"), bars, { from: v.von, to: v.bis, label: "Netzbezug", minMax: 1, leer: leer });
     legend($("strom-legend-bars"), bars.length ? [{ name: "kWh je " + (day ? "Tag" : "Stunde"), color: css("--chart") }, { name: "laufender Zeitraum", muted: true }] : []);
     var pw = v.reihen.filter(function (s) { return s.quantity === "active_power"; })
       .map(function (s) { return { name: "Leistung (+ Bezug / − Einspeisung)", punkte: s.punkte, color: css("--chart"), area: true, width: 1.5 }; });
-    lineChart($("strom-chart-power"), pw, chartOpt(v, { unit: "W", digits: 0, minSpan: 500, label: "Leistung Hausanschluss", leer: "Leistungswerte erst nach PIN-Freischaltung am Zähler" }));
+    var titel = "Leistung";
+    if (!pw.length && v.schaetzung && v.schaetzung.length) {   // ohne PIN: Ø je kWh-Abschnitt als Stufen
+      titel = "Ø-Leistung je kWh (geschätzt)";
+      var sicher = [], unsicher = [];
+      v.schaetzung.forEach(function (a) {
+        var target = a[3] ? sicher : unsicher, from = Math.max(a[0], v.von);
+        target.push([from, a[2]], [a[1], a[2]], [a[1] + 1, null]);
+      });
+      pw = [{ name: "Ø-Leistung", punkte: sicher, color: css("--chart"), area: true, width: 1.5 }];
+      if (unsicher.length) pw.push({ name: "unsicher (Datenlücke)", punkte: unsicher, muted: true });
+    }
+    $("strom-chart-power").previousElementSibling.textContent = titel;
+    lineChart($("strom-chart-power"), pw, chartOpt(v, { unit: "W", digits: 0, yMin: 0, minSpan: 500, gapMs: pw.length && v.schaetzung && !v.reihen.some(function (r) { return r.quantity === "active_power"; }) ? 4e9 : undefined, label: "Leistung Hausanschluss",
+      leer: "Noch keine zwei kWh-Sprünge im Zeitraum – die geschätzte Ø-Leistung erscheint nach dem zweiten Sprung" }));
     legend($("strom-legend-power"), pw);
   }
 

@@ -115,6 +115,13 @@ class Influx:
             return {"time": r.get_time(), "value": r.get_value()}
         return None
 
+    def counter_points(self, asset_id: str, quantity: str, start: datetime) -> list[tuple[datetime, float]]:
+        """Alle gespeicherten Zählerstände ab start (ohne Mittelung) – für Ø-Leistung aus kWh-Sprüngen."""
+        flux = f'''from(bucket: "ems_detail") |> range(start: {_t(start)})
+  |> filter(fn: (r) => r._measurement == "telemetry" and r._field == "value" and r.asset_id == "{asset_id}" and r.quantity == "{quantity}")
+  |> keep(columns: ["_time", "_value"]) |> sort(columns: ["_time"])'''
+        return [(r.get_time(), r.get_value()) for r in self._records(flux)]
+
     def device_state(self, source: str) -> dict | None:
         """Letzte Tasmota-STATE-Meldung (WLAN-Signal, Laufzeit) aus den Rohdaten."""
         flux = f'''from(bucket: "ems_raw") |> range(start: -1h)

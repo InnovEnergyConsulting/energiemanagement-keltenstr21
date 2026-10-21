@@ -224,6 +224,8 @@ def header(now: datetime, latest: list[dict], availability: dict, raw_last: dict
         p, e = strom["leistung"], strom["bezug"]
         if strom["stufe"] == OK and p is not None:
             text = ("Bezug " if p["wert"] >= 0 else "Einspeisung ") + f"{abs(p['wert']) / 1000:.1f} kW".replace(".", ",")
+        elif strom["stufe"] == OK and (strom.get("schaetzung") or {}).get("letzter"):
+            text = "Ø " + f"{strom['schaetzung']['letzter']['w'] / 1000:.1f} kW".replace(".", ",") + " (geschätzt)"
         elif strom["stufe"] == OK and e is not None:
             text = f"{e['wert']:,.0f} kWh".replace(",", ".")
         else:
@@ -297,3 +299,45 @@ def strom_view(now: datetime, latest: list[dict], availability: dict, raw_last: 
             "seit": av["since"].isoformat() if av.get("since") else None},
             "telegramm_alter_s": tele_age, "bezug": e_in, "einspeisung": e_out, "leistung": power,
             "perioden": perioden, "phasen": phasen, "geraet": geraet or {}}
+
+
+# --------------------------------------------------------------------------------- Ø-Leistung aus kWh-Sprüngen
+# Ohne PIN liefert der Zähler nur ganze kWh. Der Zählerstand springt genau an der kWh-Grenze; die Zeit zwischen
+# zwei Sprüngen ergibt die exakte mittlere Leistung dieses Abschnitts (Unschärfe nur durch das 10-s-Sendeintervall).
+# Unveränderte Stände speichert der Normalizer alle 5 min -> eine Lücke > LUECKE_S heißt Ausfall: Abschnitt unsicher.
+LUECKE_S = 15 * 60
+
+
+def power_from_steps(points: list[tuple[datetime, float]], now: datetime) -> dict:
+    """points: (Zeit, Zählerstand kWh) aufsteigend. Ergebnis: Abschnitte [von, bis, W, sicher] + Obergrenze jetzt."""
+    steps, prev_t, max_gap, segs = [], None, 0.0, []
+    last_val = None
+    for t, v in points:
+        if prev_t is not None:
+            max_gap = max(max_gap, (t - prev_t).total_seconds())
+        if last_val is not None and v > last_val:
+            steps.append((t, v, max_gap))
+            max_gap = 0.0
+        elif last_val is None:
+            steps.append((t, v, None))          # erster Stand: kein Sprung, nur Ausgangspunkt
+            max_gap = 0.0
+        last_val, prev_t = v, t
+    for (t0, v0, g0), (t1, v1, gap) in zip(steps, steps[1:]):
+        if g0 is None:
+            continue                            # Abschnitt vor dem ersten echten Sprung: Beginn unbekannt
+        dt = (t1 - t0).total_seconds()
+        if dt <= 0:
+            continue
+        segs.append([t0, t1, round((v1 - v0) * 3_600_000 / dt), g0 <= LUECKE_S and gap is not None and gap <= LUECKE_S])
+    out = {"abschnitte": segs, "letzter": None, "obergrenze_w": None, "seit": None}
+    if segs:
+        out["letzter"] = {"von": segs[-1][0].isoformat(), "bis": segs[-1][1].isoformat(), "w": segs[-1][2],
+                          "sicher": segs[-1][3], "minuten": round((segs[-1][1] - segs[-1][0]).total_seconds() / 60)}
+    real_steps = [s for s in steps if s[2] is not None]
+    if real_steps:
+        t_last = real_steps[-1][0]
+        since = (now - t_last).total_seconds()
+        out["seit"] = t_last.isoformat()
+        if since > 60:
+            out["obergrenze_w"] = round(3_600_000 / since)
+    return out

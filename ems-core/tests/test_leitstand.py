@@ -127,3 +127,23 @@ def test_strom_states_and_periods():
     wp = views.wp_view(NOW, LATEST, STATES, AVAIL, [])
     items = {i["id"]: i for i in views.header(NOW, LATEST, AVAIL, raw, {}, fb, wp, 9, st)}
     assert items["strom"]["stufe"] == "ok" and items["strom"]["text"] == "18.240 kWh"
+
+
+def test_power_from_kwh_steps():
+    m = lambda minutes: NOW - timedelta(minutes=minutes)
+    # Start 100 kWh, Sprung auf 101 nach 20 min, auf 102 nach weiteren 40 min (unveränderte Stände alle 5 min)
+    pts = [(m(120 - 5 * i), 100.0) for i in range(5)] + [(m(100), 101.0), (m(95), 101.0), (m(90), 101.0)] \
+        + [(m(85 - 5 * i), 101.0) for i in range(5)] + [(m(60), 102.0), (m(55), 102.0)]
+    est = views.power_from_steps(sorted(pts), NOW)
+    assert len(est["abschnitte"]) == 1                     # erster Abschnitt (vor dem 1. Sprung) zählt nicht
+    a = est["abschnitte"][0]
+    assert a[2] == 1500 and a[3] is True                   # 1 kWh in 40 min = 1,5 kW
+    assert est["letzter"]["minuten"] == 40
+    assert est["obergrenze_w"] == 1000                     # seit 60 min kein Sprung -> höchstens 1 kW
+
+
+def test_power_estimate_marks_gap_unsure():
+    m = lambda minutes: NOW - timedelta(minutes=minutes)
+    pts = [(m(200), 100.0), (m(190), 101.0), (m(185), 101.0), (m(100), 101.0), (m(90), 102.0)]   # 85 min Ausfall
+    est = views.power_from_steps(pts, NOW)
+    assert est["abschnitte"][0][3] is False

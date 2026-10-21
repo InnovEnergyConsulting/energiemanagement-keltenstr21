@@ -1,6 +1,12 @@
 # Hauptzähler über WattWächter – Konzept zur Einbindung ins EMS
 
-Stand: 21.10.2026 · Phase 4 („Optischer Zähler“) laut Umsetzungskonzept · Status: **Konzept, noch nichts umgesetzt**
+Stand: 21.10.2026 · Phase 4 („Optischer Zähler“) laut Umsetzungskonzept · Status: **in Betrieb (ohne PIN: nur Zählerstände)**
+
+**Umsetzung 21.10.2026:** Gerät eingerichtet (3.1 komplett, WebPassword Benutzer `admin`, Passwort in `secrets/wattwaechter_web_password`), Topic abweichend vom Entwurf `ems/v1/device/wattwaechter/…` (Normalizer ergänzt die Rohdaten-Hülle), Mapping `tasmota_wattwaechter.yaml` (nur Felder mit `aktiv: true`), Leitstand-Reiter „Strom“ + Statuseintrag „Hausanschluss“. **Prüfschritte erledigt:** 5.1 Montage, 5.2 Skript aktiv, **5.3 Display = übertragener Zählerstand (2999 kWh, vom Nutzer bestätigt)**. Offen: 5.4–5.6 nach PIN-Eingabe.
+
+**Gemessen 21.10.2026:** Der MT691 sendet **jede Sekunde** ein SML-Telegramm (08:33:47,24 → 48,24 → …); ohne PIN enthält es nur 1.8.0 und 2.8.0 in ganzen kWh (Einheit Wh, Skalierung 10³) sowie Hersteller (ISK) und Geräte-ID. Der WattWächter gibt alle 10 s (TelePeriod) an das EMS weiter.
+
+**Übergangslösung bis zur PIN – Ø-Leistung aus kWh-Sprüngen** (Leitstand, `views.power_from_steps`): 1 kWh / Zeit zwischen zwei Sprüngen = exakte mittlere Leistung des Abschnitts (Unschärfe ±10 s je Sprung, < 0,5 % bei 1,5 kW). Seit dem letzten Sprung wird eine Obergrenze (1 kWh / vergangene Zeit) angezeigt. Abschnitte mit Datenlücke > 15 min gelten als unsicher (grau). Berechnung nur in der Anzeige – gespeichert werden weiterhin nur echte Zählerstände.
 Rohdaten der Auslesung: `inventory/wattwaechter-auslesung-2026-10-21/` (Status 0, SML-Skript; ohne Passwörter)
 
 ---

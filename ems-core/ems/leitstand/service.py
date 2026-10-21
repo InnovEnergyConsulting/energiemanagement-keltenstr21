@@ -12,7 +12,7 @@ import json
 import mimetypes
 import threading
 import time
-from datetime import timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -66,6 +66,12 @@ class Leitstand:
         totals = self.influx.series(f + ' and r.quantity =~ /_total$/', spanne, fn="last")
         others = self.influx.series(f + ' and not (r.quantity =~ /_total$/)', spanne)
         totals["reihen"] += others["reihen"]
+        # Ø-Leistung aus kWh-Sprüngen (geschätzt); Vorlauf von 2 Tagen, damit der erste Abschnitt einen Beginn hat
+        von = datetime.fromtimestamp(totals["von"] / 1000, timezone.utc)
+        pts = self.influx.counter_points("hausanschluss", "energy_import_total", von - timedelta(days=2))
+        est = views.power_from_steps(pts, datetime.fromtimestamp(totals["bis"] / 1000, timezone.utc))
+        totals["schaetzung"] = [[int(a.timestamp() * 1000), int(b.timestamp() * 1000), w, ok]
+                                for a, b, w, ok in est["abschnitte"] if b.timestamp() * 1000 >= totals["von"]]
         return totals
 
     def lage(self) -> dict:
@@ -82,6 +88,8 @@ class Leitstand:
         anfang = {k: ix.counter_first("hausanschluss", "energy_import_total", v.astimezone(timezone.utc))
                   for k, v in starts.items()}
         strom = views.strom_view(now, latest, avail, raw_last, anfang, ix.device_state("wattwaechter"))
+        est = views.power_from_steps(ix.counter_points("hausanschluss", "energy_import_total", now - timedelta(days=2)), now)
+        strom["schaetzung"] = {k: v for k, v in est.items() if k != "abschnitte"}
         kopf = views.header(now, latest, avail, raw_last, ix.backups(), fb, wp, len(shelly), strom)
         return {"stand": iso(now), "gesamt": views.overall(kopf), "kopf": kopf, "fb": fb, "wp": wp,
                 "strom": strom, "shelly": {"geraete": shelly}}
