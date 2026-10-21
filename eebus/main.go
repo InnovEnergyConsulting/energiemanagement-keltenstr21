@@ -139,6 +139,8 @@ type adapter struct {
 	subscribed map[string]bool
 	availMu    sync.Mutex
 	lastStatus string // zuletzt gemeldeter Verfügbarkeitsstatus (Meldungen nur bei Änderung)
+	connected  bool
+	changedAt  time.Time // letzter Wechsel verbunden/getrennt (für die Zeitüberwachung)
 }
 
 // Feature-Typen, die für die Analyse NUR GELESEN und abonniert werden (kein Write, kein Binding,
@@ -286,11 +288,33 @@ func (a *adapter) Errorf(f string, args ...interface{}) {
 
 // --- ServiceReaderInterface
 
+func (a *adapter) setConnected(c bool) {
+	a.availMu.Lock()
+	a.connected, a.changedAt = c, time.Now()
+	a.availMu.Unlock()
+}
+
+// watchdog: ship-go meldet ein ausgeschaltetes Gerät nicht zuverlässig als Fehler (Verbindungsversuche laufen ins
+// Leere). Steht nach 5 min keine Verbindung, gilt der VR 940 als nicht erreichbar (21.10.2026, VR 940 ausgeschaltet).
+func (a *adapter) watchdog() {
+	for range time.Tick(time.Minute) {
+		a.availMu.Lock()
+		down, since, last := !a.connected, a.changedAt, a.lastStatus
+		a.availMu.Unlock()
+		if down && time.Since(since) > 5*time.Minute && !strings.HasPrefix(last, "offline|") {
+			a.availability("offline", fmt.Sprintf("VR 940 seit %s nicht erreichbar (ausgeschaltet oder Netzwerk)",
+				since.Local().Format("15:04")))
+		}
+	}
+}
+
 func (a *adapter) RemoteServiceConnected(s api.ServiceInterface, id shipapi.ServiceIdentity) {
+	a.setConnected(true)
 	log.Printf("Verbunden mit %s", id.SKI)
 	a.availability("online", "SHIP-Verbindung steht")
 }
 func (a *adapter) RemoteServiceDisconnected(s api.ServiceInterface, id shipapi.ServiceIdentity) {
+	a.setConnected(false)
 	log.Printf("Getrennt von %s", id.SKI)
 	a.subMu.Lock()
 	a.subscribed = map[string]bool{} // nach Neuverbindung neu abonnieren
@@ -317,6 +341,7 @@ func (a *adapter) ServicePairingDetailUpdate(id shipapi.ServiceIdentity, d *ship
 	log.Printf("Kopplungszustand %s: %s", id.SKI, state)
 	switch d.State() {
 	case shipapi.ConnectionStateCompleted:
+		a.setConnected(true)
 		a.availability("online", "Kopplung abgeschlossen")
 	case shipapi.ConnectionStateTrusted:
 		// Zwischenstand – "online" kommt mit Completed bzw. RemoteServiceConnected
@@ -531,7 +556,9 @@ func main() {
 	if err := a.svc.Start(); err != nil {
 		log.Fatal(err)
 	}
+	a.setConnected(false)
 	a.availability("verbindet", "Adapter gestartet, baue Verbindung zum VR 940 auf")
+	go a.watchdog()
 	log.Printf("EEBUS-Adapter läuft (Port %d) – nur Überwachung: MA-MPC, MA-MDT", port)
 
 	// Gerätebeschreibung regelmäßig prüfen (neue Entitäten/Features nach Firmware-Update)
