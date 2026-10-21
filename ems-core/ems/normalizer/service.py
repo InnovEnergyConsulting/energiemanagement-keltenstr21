@@ -26,6 +26,8 @@ log = logsetup.setup("ems.normalizer")
 RAW_ONLY = {("eebus", "mpc"), ("eebus", "mdt"), ("eebus", "discovery"), ("eebus", "mdns"),
             ("wattwaechter", "sensor"), ("wattwaechter", "state")}   # schon beim Geräte-Topic übersetzt
 
+QUALITY_REPEAT_S = 30 * 60
+
 # Tasmota-Geräte: Gerätename (Topic) -> Mapping
 TASMOTA_DEVICES = {"wattwaechter": "tasmota_wattwaechter"}
 
@@ -35,7 +37,7 @@ class Normalizer:
         self.mappings = mappings
         self.publish = publish
         self.last: dict[str, tuple[str, float]] = {}
-        self.reported_quality: set[str] = set()
+        self.reported_quality: dict[str, float] = {}   # Meldung -> Zeitpunkt der letzten Ausgabe
         self.eebus_state = eebus.EebusState()
         self.tasmota_state = tasmota.TasmotaState()
 
@@ -112,11 +114,13 @@ class Normalizer:
         log.debug("%s/%s: %d Messwerte, %d Zustände", source, stream, sent, len(states))
 
     def _quality(self, q: dict):
-        # gleiche Meldung nur einmal pro Programmlauf, sonst flutet ein Schemafehler jede Minute die Datenbank
+        # gleiche Meldung höchstens alle QUALITY_REPEAT_S (sonst flutet ein Schemafehler jede Minute die Datenbank);
+        # die Wiederholung zeigt dem Leitstand, dass die Störung noch anhält (sonst gilt sie dort als erledigt)
         key = json.dumps(q, sort_keys=True)
-        if key in self.reported_quality:
+        now = time.monotonic()
+        if now - self.reported_quality.get(key, -QUALITY_REPEAT_S) < QUALITY_REPEAT_S:
             return
-        self.reported_quality.add(key)
+        self.reported_quality[key] = now
         log.warning("Qualität: %s", q)
         self.publish(f"ems/v1/quality/{q['source']}", q)
 

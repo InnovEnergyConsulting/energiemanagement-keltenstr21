@@ -113,7 +113,10 @@ Pausen bleiben als Lücke sichtbar. Ein stufenloser Schieberegler (1 min – 30 
 
 Shelly-Geräte stehen in `inventory/shelly.yaml` (mDNS-Fund 20.10.2026). Dort `zweck` und `stromkreis` ergänzen,
 dann erscheinen sie im Reiter. Grenzwerte: `ems-core/ems/leitstand/views.py`. Nach Code-Änderungen:
-`docker compose build controme-adapter && docker compose up -d --no-deps leitstand`.
+`docker compose build controme-adapter && docker compose up -d --no-deps --force-recreate controme-adapter normalizer writer leitstand`.
+**Immer alle vier ems-core-Container neu erstellen:** Docker 29 mit containerd-Image-Speicher löscht beim Neubau das alte Image
+vollständig – nicht neu erstellte Container laufen dann auf einem Image ohne Eintrag weiter, und Werkzeuge wie das
+System Dashboard brechen beim Abfragen ab (21.10.2026).
 Zurück zu Grafana als Hauptansicht wäre jederzeit möglich: Grafana bleibt unverändert.
 
 ## 4. Sicherheitsregeln (technisch durchgesetzt)

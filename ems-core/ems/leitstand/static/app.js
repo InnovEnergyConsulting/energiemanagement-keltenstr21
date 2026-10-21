@@ -372,7 +372,10 @@
     $("wp-chips").innerHTML = chips.join("");
 
     $("wp-msgs").innerHTML = wp.meldungen.map(function (m) {
-      return '<tr><td class="n">' + esc(when(m.zuletzt)) + '</td><td class="wrap-text">' + esc(m.text) + '</td><td class="n">' + m.anzahl + '</td><td class="n dim">' + esc(when(m.erstmals)) + "</td></tr>";
+      var tag = m.aktuell ? ' <span class="tag ' + (m.stufe === "ok" ? "" : m.stufe) + '">aktuell</span>'
+        : m.erledigt ? ' <span class="tag">erledigt</span>' : ' <span class="tag hinweis">besteht</span>';
+      return '<tr' + (m.erledigt ? ' class="dim"' : "") + '><td class="n">' + esc(when(m.zuletzt)) + '</td><td class="wrap-text">' + esc(m.text) + tag +
+        '</td><td class="n">' + (m.aktuell ? "–" : m.anzahl) + '</td><td class="n dim">' + esc(when(m.erstmals)) + "</td></tr>";
     }).join("") || '<tr><td colspan="4" class="dim">keine Meldungen</td></tr>';
     renderWpCharts();
   }

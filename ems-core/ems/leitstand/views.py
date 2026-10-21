@@ -21,6 +21,8 @@ BACKUP_STOERUNG_S = 50 * 3600
 RESTORE_HINWEIS_S = 35 * 86400
 IM_SOLL_K = 0.5
 
+MELDUNG_ERLEDIGT_S = 3600
+STATUS_DE = {"online": "verbunden", "offline": "getrennt", "verbindet": "Verbindungsaufbau", "pairing": "Kopplung läuft"}
 MODE_DE = {"auto": "Automatik", "on": "Ein", "off": "Aus", "Heating": "Heizen", "Cooling": "Kühlen"}
 
 
@@ -142,7 +144,8 @@ def wp_view(now: datetime, latest: list[dict], states: dict, availability: dict,
     if not av:
         hinweise.append("EEBUS-Adapter hat noch keinen Zustand gemeldet")
     elif not online:
-        hinweise.append(f"EEBUS-Verbindung: {av.get('status')}" + (f" ({av['reason']})" if av.get("reason") else ""))
+        hinweise.append("EEBUS-Verbindung: " + STATUS_DE.get(av.get("status"), av.get("status") or "?")
+                        + (f" ({av['reason']})" if av.get("reason") else ""))
     if aussen_stoerung:
         hinweise.append("Außentemperaturfühler meldet „error“ (nicht angeschlossen?)")
     if online and power is not None and power["alter_s"] > EEBUS_VALUE_HINWEIS_S:
@@ -158,10 +161,15 @@ def wp_view(now: datetime, latest: list[dict], states: dict, availability: dict,
         g["anzahl"] += 1
         g["erstmals"], g["zuletzt"] = min(g["erstmals"], q["time"]), max(g["zuletzt"], q["time"])
     meldungen = sorted(grouped.values(), key=lambda g: g["zuletzt"], reverse=True)
+    for g in meldungen:                         # Normalizer wiederholt anhaltende Störungen alle 30 min
+        g["erledigt"] = age_s(now, g["zuletzt"]) > MELDUNG_ERLEDIGT_S
     if av.get("since"):
-        meldungen.append({"text": f"EEBUS-Verbindung {av.get('status')}", "art": "verbindung", "anzahl": 1,
-                          "erstmals": av["since"], "zuletzt": av["since"]})
-        meldungen.sort(key=lambda g: g["zuletzt"], reverse=True)
+        text = "EEBUS-Verbindung: " + STATUS_DE.get(av.get("status"), av.get("status") or "?")
+        if av.get("reason"):
+            text += f" – {av['reason']}"
+        meldungen.insert(0, {"text": text, "art": "verbindung", "anzahl": 1, "erstmals": av["since"],
+                             "zuletzt": av["since"], "erledigt": False, "aktuell": True,
+                             "stufe": OK if av.get("status") == "online" else HINWEIS if av.get("status") == "verbindet" else STOERUNG})
     for g in meldungen:
         g["erstmals"], g["zuletzt"] = g["erstmals"].isoformat(), g["zuletzt"].isoformat()
 
@@ -212,7 +220,8 @@ def header(now: datetime, latest: list[dict], availability: dict, raw_last: dict
                   "titel": "Controme-Miniserver: letzter Abruf" + ("" if not room_hints else "; " + "; ".join(fb["hinweise"]))})
 
     online = wp["verbindung"]["status"] == "online"
-    wp_level = STOERUNG if wp["verbindung"]["status"] not in ("online", None) else (UNBEKANNT if not online else OK)
+    status = wp["verbindung"]["status"]
+    wp_level = OK if online else UNBEKANNT if status is None else HINWEIS if status in ("verbindet", "pairing") else STOERUNG
     if online and wp["hinweise"]:
         wp_level = HINWEIS
     n = len(wp["hinweise"])

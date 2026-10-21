@@ -147,3 +147,18 @@ def test_power_estimate_marks_gap_unsure():
     pts = [(m(200), 100.0), (m(190), 101.0), (m(185), 101.0), (m(100), 101.0), (m(90), 102.0)]   # 85 min Ausfall
     est = views.power_from_steps(pts, NOW)
     assert est["abschnitte"][0][3] is False
+
+
+def test_messages_resolved_and_connection_state():
+    q = [{"time": NOW - timedelta(hours=3), "source": "eebus", "kind": "unknown_entity", "detail": "Entität 3 nicht im Mapping"},
+         {"time": NOW - timedelta(minutes=20), "source": "eebus", "kind": "value_state", "detail": "Außentemperatur Vaillant: error"}]
+    av = {**AVAIL, "eebus": {"status": "offline", "since": NOW - timedelta(minutes=5), "reason": "VR 940 im Netz nicht erreichbar"}}
+    wp = views.wp_view(NOW, LATEST, STATES, av, q)
+    first, *rest = wp["meldungen"]
+    assert first["aktuell"] and first["stufe"] == "stoerung" and "getrennt – VR 940" in first["text"]
+    by = {m["text"]: m["erledigt"] for m in rest}
+    assert by["Entität 3 nicht im Mapping"] is True and by["Außentemperatur Vaillant: error"] is False
+    wp2 = views.wp_view(NOW, LATEST, STATES, {**AVAIL, "eebus": {"status": "verbindet", "since": NOW}}, [])
+    raw = {("controme", "temps"): {"time": NOW, "http_status": 200}}
+    items = {i["id"]: i for i in views.header(NOW, LATEST, AVAIL, raw, {}, views.fb_view(NOW, LATEST, STATES), wp2, 0)}
+    assert items["wp"]["stufe"] == "hinweis"      # Verbindungsaufbau ist keine Störung

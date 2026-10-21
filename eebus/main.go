@@ -137,6 +137,8 @@ type adapter struct {
 	local      spineapi.EntityLocalInterface
 	subMu      sync.Mutex
 	subscribed map[string]bool
+	availMu    sync.Mutex
+	lastStatus string // zuletzt gemeldeter Verfügbarkeitsstatus (Meldungen nur bei Änderung)
 }
 
 // Feature-Typen, die für die Analyse NUR GELESEN und abonniert werden (kein Write, kein Binding,
@@ -206,7 +208,29 @@ func (a *adapter) publish(topic string, payload any, retain bool) {
 }
 
 func (a *adapter) availability(status, reason string) {
+	a.availMu.Lock()
+	a.lastStatus = status + "|" + reason
+	a.availMu.Unlock()
 	a.publish("ems/v1/availability/eebus", map[string]any{"status": status, "since": nowISO(), "reason": reason}, true)
+}
+
+// unreachable wird aus den Fehlermeldungen von ship-go abgeleitet ("connection to <ski> at ... failed: dial tcp ...").
+// Gemeldet wird nur bei Zustandswechsel, damit die Wiederholversuche nicht jedes Mal eine Meldung erzeugen.
+func (a *adapter) unreachable(msg string) {
+	if !strings.Contains(msg, a.remoteSKI) || !strings.Contains(msg, "failed") {
+		return
+	}
+	cause := msg
+	if i := strings.LastIndex(msg, ": "); i >= 0 {
+		cause = msg[i+2:]
+	}
+	reason := "VR 940 im Netz nicht erreichbar (" + cause + ")"
+	a.availMu.Lock()
+	same := a.lastStatus == "offline|"+reason
+	a.availMu.Unlock()
+	if !same {
+		a.availability("offline", reason)
+	}
 }
 
 func (a *adapter) raw(stream string, payload any) {
@@ -251,8 +275,14 @@ func (a *adapter) Debug(args ...interface{}) {
 func (a *adapter) Debugf(f string, args ...interface{}) { a.Debug(fmt.Sprintf(f, args...)) }
 func (a *adapter) Info(args ...interface{})             { log.Println(append([]interface{}{"INFO"}, args...)...) }
 func (a *adapter) Infof(f string, args ...interface{})  { log.Printf("INFO "+f, args...) }
-func (a *adapter) Error(args ...interface{})            { log.Println(append([]interface{}{"ERROR"}, args...)...) }
-func (a *adapter) Errorf(f string, args ...interface{}) { log.Printf("ERROR "+f, args...) }
+func (a *adapter) Error(args ...interface{}) {
+	log.Println(append([]interface{}{"ERROR"}, args...)...)
+	a.unreachable(fmt.Sprint(args...))
+}
+func (a *adapter) Errorf(f string, args ...interface{}) {
+	log.Printf("ERROR "+f, args...)
+	a.unreachable(fmt.Sprintf(f, args...))
+}
 
 // --- ServiceReaderInterface
 
@@ -330,6 +360,17 @@ func errStr(err error) any {
 }
 
 func (a *adapter) onMPC(ski string, dev spineapi.DeviceRemoteInterface, e spineapi.EntityRemoteInterface, ev api.EventType) {
+	// Beim Entfernen des Geräts (Verbindungsabbruch) ruft eebus-go die Ereignisfunktion ohne Entität auf -> kein Zugriff,
+	// sonst Absturz (nil pointer, 21.10.2026). recover als zweite Sicherung: ein Ereignis darf den Adapter nie beenden.
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Ereignis %s abgefangen: %v", ev, r)
+		}
+	}()
+	if e == nil || e.Address() == nil {
+		log.Printf("Ereignis %s ohne Entität (Gerät getrennt) – ignoriert", ev)
+		return
+	}
 	out := map[string]any{"event": string(ev), "entity": addr(e), "entity_type": string(e.EntityType())}
 	if v, err := a.mpc.Power(e); err == nil {
 		out["power_w"] = v
@@ -359,6 +400,17 @@ func (a *adapter) onMPC(ski string, dev spineapi.DeviceRemoteInterface, e spinea
 }
 
 func (a *adapter) onMDT(ski string, dev spineapi.DeviceRemoteInterface, e spineapi.EntityRemoteInterface, ev api.EventType) {
+	// Beim Entfernen des Geräts (Verbindungsabbruch) ruft eebus-go die Ereignisfunktion ohne Entität auf -> kein Zugriff,
+	// sonst Absturz (nil pointer, 21.10.2026). recover als zweite Sicherung: ein Ereignis darf den Adapter nie beenden.
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Ereignis %s abgefangen: %v", ev, r)
+		}
+	}()
+	if e == nil || e.Address() == nil {
+		log.Printf("Ereignis %s ohne Entität (Gerät getrennt) – ignoriert", ev)
+		return
+	}
 	out := map[string]any{"event": string(ev), "entity": addr(e), "entity_type": string(e.EntityType())}
 	if v, err := a.mdt.Temperature(e, model.UnitOfMeasurementTypedegC); err == nil {
 		out["temperature_degc"] = v
@@ -479,7 +531,7 @@ func main() {
 	if err := a.svc.Start(); err != nil {
 		log.Fatal(err)
 	}
-	a.availability("pairing", "gestartet, warte auf Verbindung/Vertrauen")
+	a.availability("verbindet", "Adapter gestartet, baue Verbindung zum VR 940 auf")
 	log.Printf("EEBUS-Adapter läuft (Port %d) – nur Überwachung: MA-MPC, MA-MDT", port)
 
 	// Gerätebeschreibung regelmäßig prüfen (neue Entitäten/Features nach Firmware-Update)
