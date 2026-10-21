@@ -1,0 +1,25 @@
+>D
+>B
+=>sensor53 r
+>M 1
++1,3,s,0,9600,MT691
+1,77070100010800ff@1000,Bezug,kWh,E_in,3
+1,77070100020800ff@1000,Einspeisung,kWh,E_out,3
+1,77070100100700ff@1,Aktuelle Leistung,W,Power,0
+1,=h--
+1,77070100240700ff@1,Leistung L1,W,power_L1,0
+1,77070100380700ff@1,Leistung L2,W,power_L2,0
+1,770701004c0700ff@1,Leistung L3,W,power_L3,0
+1,770701001f0700ff@1,Strom L1,A,Curr_p1,2
+1,77070100330700ff@1,Strom L2,A,Curr_p2,2
+1,77070100470700ff@1,Strom L3,A,Curr_p3,2
+1,77070100200700ff@1,Spannung L1,V,Volt_p1,1
+1,77070100340700ff@1,Spannung L2,V,Volt_p2,1
+1,77070100480700ff@1,Spannung L3,V,Volt_p3,1
+1,77070100510701ff@1,Winkel L2-L1,deg,angle_L2_L1,0
+1,77070100510702ff@1,Winkel L3-L1,deg,angle_L3_L1,0
+1,77070100510704ff@1,Winkel I/U L1,deg,angle_L1,1
+1,7707010051070fff@1,Winkel I/U L2,deg,angle_L2,1
+1,7707010051071aff@1,Winkel I/U L3,deg,angle_L3,1
+1,770701000e0700ff@1,Frequenz,Hz,Freq,1
+#

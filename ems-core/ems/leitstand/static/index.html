@@ -22,6 +22,7 @@
   <nav class="tabs" role="tablist" aria-label="Bereiche">
     <button class="tab" role="tab" id="t-fb" data-hash="fb" aria-controls="p-fb" aria-selected="true">Regelung FB <span class="badge" id="b-fb">–</span></button>
     <button class="tab" role="tab" id="t-wp" data-hash="wp" aria-controls="p-wp" aria-selected="false">Regelung WP <span class="badge" id="b-wp">–</span></button>
+    <button class="tab" role="tab" id="t-strom" data-hash="strom" aria-controls="p-strom" aria-selected="false">Strom <span class="badge" id="b-strom">–</span></button>
     <button class="tab" role="tab" id="t-shelly" data-hash="shelly" aria-controls="p-shelly" aria-selected="false">Steuerung Shelly <span class="badge" id="b-shelly">geplant</span></button>
   </nav>
 
@@ -66,7 +67,21 @@
       <tbody id="wp-msgs"></tbody></table></div></div>
   </section>
 
-  <!-- Reiter 3: Shelly -->
+  <!-- Reiter 3: Strom (Hauptzähler über WattWächter) -->
+  <section class="pane" role="tabpanel" id="p-strom" aria-labelledby="t-strom" hidden>
+    <div><div class="lvl">Lage <span>– Hausanschluss (Hauptzähler Iskra MT691 über WattWächter)</span></div><div class="kpis" id="strom-kpis"></div></div>
+    <div><div class="lvl">Phasen <span>– Last je Außenleiter, sichtbar nach PIN-Freischaltung am Zähler</span></div><div id="strom-phasen"></div></div>
+    <div>
+      <div class="lvl">Verlauf <span id="strom-hinweis"></span><div class="tools" data-range="strom"></div></div>
+      <div class="grid2">
+        <div class="card"><h3 id="strom-bar-titel">Netzbezug</h3><div class="chart" id="strom-chart-bars"></div><div class="legend" id="strom-legend-bars"></div></div>
+        <div class="card"><h3>Leistung</h3><div class="chart" id="strom-chart-power"></div><div class="legend" id="strom-legend-power"></div></div>
+      </div>
+    </div>
+    <div class="card"><h3>Messgerät</h3><div class="chips" id="strom-geraet"></div></div>
+  </section>
+
+  <!-- Reiter 4: Shelly -->
   <section class="pane" role="tabpanel" id="p-shelly" aria-labelledby="t-shelly" hidden>
     <div>
       <div class="lvl">Lage <span>– Phase 5 lesend, Phase 8 schaltend</span></div>

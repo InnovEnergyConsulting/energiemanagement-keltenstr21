@@ -1,5 +1,8 @@
 """Normalizer-Dienst: ems/v1/raw/# -> ems/v1/telemetry|state|quality.
 
+Geräte mit eigenem MQTT-Format (Tasmota) senden nach ems/v1/device/<gerät>/...; dafür ergänzt der Normalizer
+die Rohdaten-Hülle (-> ems/v1/raw/<gerät>/<strom>, vom Writer gespeichert) und übersetzt direkt.
+
 Liest nie seine eigenen Ausgabetopics (keine Schleife, Anforderungen Kap. 2).
 Duplikate (gleicher Messpunkt, gleiche Messzeit, gleicher Wert) werden verworfen – z. B. wenn
 ein Funksensor seit dem letzten Abruf nichts Neues gesendet hat.
@@ -12,14 +15,19 @@ import yaml
 from ..common import log as logsetup
 from ..common.config import mapping_dir
 from ..common.mqtt import Bus
-from . import controme, eebus
+from ..common.timeutil import utcnow
+from . import controme, eebus, tasmota
 
 log = logsetup.setup("ems.normalizer")
 
 
 # Rohdaten-Ströme, die nur gespeichert (ems_raw), aber nicht normalisiert werden – die fachlichen Werte
 # kommen bei EEBUS vollständig über den Strom "spine" (Stufe C, 20.10.2026).
-RAW_ONLY = {("eebus", "mpc"), ("eebus", "mdt"), ("eebus", "discovery"), ("eebus", "mdns")}
+RAW_ONLY = {("eebus", "mpc"), ("eebus", "mdt"), ("eebus", "discovery"), ("eebus", "mdns"),
+            ("wattwaechter", "sensor"), ("wattwaechter", "state")}   # schon beim Geräte-Topic übersetzt
+
+# Tasmota-Geräte: Gerätename (Topic) -> Mapping
+TASMOTA_DEVICES = {"wattwaechter": "tasmota_wattwaechter"}
 
 
 class Normalizer:
@@ -29,8 +37,33 @@ class Normalizer:
         self.last: dict[str, tuple[str, float]] = {}
         self.reported_quality: set[str] = set()
         self.eebus_state = eebus.EebusState()
+        self.tasmota_state = tasmota.TasmotaState()
+
+    def handle_device(self, topic: str, payload: bytes):
+        parts = topic.split("/")            # ems/v1/device/<gerät>/<prefix>/<name>
+        if len(parts) != 6 or parts[3] not in TASMOTA_DEVICES:
+            return
+        device, prefix, name = parts[3], parts[4], parts[5]
+        received = utcnow()
+        data = tasmota.parse_payload(payload)
+        if (prefix, name) == ("tele", "LWT"):
+            self.publish(f"ems/v1/availability/{device}", tasmota.availability(str(data), received), retain=True)
+        elif (prefix, name) == ("tele", "STATE"):
+            self.publish(f"ems/v1/raw/{device}/state", tasmota.envelope(device, "state", data, received))
+        elif (prefix, name) == ("tele", "SENSOR"):
+            raw = tasmota.envelope(device, "sensor", data, received)
+            self.publish(f"ems/v1/raw/{device}/sensor", raw)
+            try:
+                telemetry, states, quality = tasmota.normalize(raw, self.mappings[TASMOTA_DEVICES[device]],
+                                                               self.tasmota_state)
+            except (KeyError, TypeError, AttributeError, ValueError) as exc:
+                self._quality({"source": device, "kind": "schema_error", "detail": f"SENSOR: {type(exc).__name__}: {exc}"[:300]})
+                return
+            self._emit(device, "sensor", telemetry, states, quality)
 
     def handle(self, topic: str, payload: bytes):
+        if topic.startswith("ems/v1/device/"):
+            return self.handle_device(topic, payload)
         parts = topic.split("/")            # ems/v1/raw/<quelle>/<strom>
         if len(parts) != 5:
             return
@@ -61,6 +94,9 @@ class Normalizer:
             # unerwartetes Antwortformat (z. B. nach Controme-Update) -> melden statt abstürzen
             self._quality({"source": source, "kind": "schema_error", "detail": f"{stream}: {type(exc).__name__}: {exc}"[:300]})
             return
+        self._emit(source, stream, telemetry, states, quality)
+
+    def _emit(self, source, stream, telemetry, states, quality):
         sent = 0
         for t in telemetry:
             key = t["point_id"]
@@ -94,7 +130,7 @@ def run():
     log.info("Mappings geladen: %s", ", ".join(f"{k} v{v['mapping_version']}" for k, v in mappings.items()))
     holder = {}
     bus = Bus("ems-normalizer", "normalizer", "ems/v1/availability/normalizer",
-              subscriptions=["ems/v1/raw/#"], on_message=lambda t, p: holder["n"].handle(t, p))
+              subscriptions=["ems/v1/raw/#", "ems/v1/device/#"], on_message=lambda t, p: holder["n"].handle(t, p))
     holder["n"] = Normalizer(mappings, bus.publish_json)
     bus.start()
     while True:

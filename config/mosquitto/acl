@@ -3,6 +3,7 @@
 # was hier nicht ausdrücklich erlaubt ist.
 #
 # Topic-Schema (Anforderungen Kap. 7):
+#   ems/v1/device/<gerät>/...            Geräte mit eigenem MQTT-Format (Tasmota); Normalizer ergänzt Hülle
 #   ems/v1/raw/<quelle>/<strom>          Rohdaten der Adapter (+ Empfangszeit)
 #   ems/v1/telemetry/<asset>/<quantity>  normalisierte Messwerte
 #   ems/v1/state/<asset>                 Zustände (Szene, Betriebsart …)
@@ -23,7 +24,15 @@ user eebus_adapter
 topic write ems/v1/raw/eebus/#
 topic readwrite ems/v1/availability/eebus
 
+# WattWächter (Tasmota, Hauptzähler): sendet nur in seinen Gerätebereich. Kein Lesen -> Tasmota kann seine
+# cmnd-Topics zwar abonnieren wollen, bekommt aber nichts: Befehle über MQTT sind damit unmöglich.
+user wattwaechter
+topic write ems/v1/device/wattwaechter/#
+
 user normalizer
+topic read ems/v1/device/#
+topic write ems/v1/raw/wattwaechter/#
+topic write ems/v1/availability/wattwaechter
 topic read ems/v1/raw/#
 topic write ems/v1/telemetry/#
 topic write ems/v1/state/#

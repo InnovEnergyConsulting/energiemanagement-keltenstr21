@@ -25,8 +25,9 @@ gen() {  # gen <datei> – 32 Zeichen, nur URL-sichere Zeichen
 gen influx_admin_password
 gen influx_admin_token
 gen grafana_admin_password
+gen wattwaechter_web_password   # Weboberfläche/Befehls-API des WattWächters (Benutzer admin)
 gen restic_password            # Schlüssel der Sicherung – OHNE ihn ist jedes Backup wertlos -> Vaultwarden + Papier!
-MQTT_USERS="ems_admin controme_adapter normalizer writer eebus_adapter"
+MQTT_USERS="ems_admin controme_adapter normalizer writer eebus_adapter wattwaechter"
 for u in $MQTT_USERS; do gen "mqtt_$u"; done
 
 # --- Mosquitto-Passwortdatei (Hashes) mit dem Broker-Image selbst erzeugen

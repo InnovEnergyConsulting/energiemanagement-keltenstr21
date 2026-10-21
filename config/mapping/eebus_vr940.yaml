@@ -2,14 +2,18 @@
 # Grundlage: Discovery und Aufzeichnung vom 20.10.2026 (docs/EEBUS_Datenanalyse.md).
 # STAND: vorläufig (Stufe C parallel zu Stufe B) – nach 1–2 Wochen Betriebsdaten überprüfen.
 profile: eebus_vr940
-mapping_version: 1
+mapping_version: 2
 source: eebus
 stream: spine
 point_prefix: haus.vaillant
 
 # SPINE-Entitätsadresse (wie in der Discovery) -> stabiles Asset im EMS
 entities:
+  # Achtung: Der VR 940 hat die Adressen am 21.10.2026 05:08 neu vergeben (nach Inbetriebnahme Heizkreis):
+  # Wärmepumpe "1" -> "3", neu "3.1" Verdichter. Alte Adresse bleibt für Aufzeichnungen vom 20.10.
   "1":     {asset_id: vaillant_wp,            name: "Wärmepumpe",              circuit_id: heat_pump}
+  "3":     {asset_id: vaillant_wp,            name: "Wärmepumpe",              circuit_id: heat_pump}
+  "3.1":   {asset_id: vaillant_wp_verdichter, name: "Wärmepumpe – Verdichter", circuit_id: heat_pump}
   "4":     {asset_id: vaillant_warmwasser,    name: "Warmwasser",              circuit_id: unassigned}
   "5.1.1": {asset_id: vaillant_zone_1,        name: "Heizzone 1 (VRC 720)",    circuit_id: unassigned}
   "6":     {asset_id: vaillant_aussenfuehler, name: "Außentemperatur Vaillant", circuit_id: unassigned}

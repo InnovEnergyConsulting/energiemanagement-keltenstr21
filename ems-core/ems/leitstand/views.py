@@ -186,7 +186,7 @@ def wp_view(now: datetime, latest: list[dict], states: dict, availability: dict,
 
 # --------------------------------------------------------------------------------- Kopfzeile
 def header(now: datetime, latest: list[dict], availability: dict, raw_last: dict, backups: dict,
-           fb: dict, wp: dict, shelly_count: int) -> list[dict]:
+           fb: dict, wp: dict, shelly_count: int, strom: dict | None = None) -> list[dict]:
     newest = max((r["time"] for r in latest), default=None)
     pipe_age = age_s(now, newest)
     norm = availability.get("normalizer", {})
@@ -220,6 +220,17 @@ def header(now: datetime, latest: list[dict], availability: dict, raw_last: dict
                   "text": (f"{n} Hinweis" + ("e" if n != 1 else "")) if n else "verbunden",
                   "titel": "; ".join(wp["hinweise"]) or "EEBUS-Verbindung zum VR 940 steht"})
 
+    if strom is not None:
+        p, e = strom["leistung"], strom["bezug"]
+        if strom["stufe"] == OK and p is not None:
+            text = ("Bezug " if p["wert"] >= 0 else "Einspeisung ") + f"{abs(p['wert']) / 1000:.1f} kW".replace(".", ",")
+        elif strom["stufe"] == OK and e is not None:
+            text = f"{e['wert']:,.0f} kWh".replace(",", ".")
+        else:
+            text = "keine Zählerdaten" if strom["stufe"] == HINWEIS else (strom["verbindung"]["status"] or "–")
+        items.append({"id": "strom", "label": "Hausanschluss", "stufe": strom["stufe"], "alter_s": None, "text": text,
+                      "titel": "; ".join(strom["hinweise"]) or "Hauptzähler (WattWächter) liefert Daten"})
+
     items.append({"id": "shelly", "label": "Shelly", "stufe": GEPLANT, "alter_s": None,
                   "text": f"{shelly_count} erkannt", "titel": "Im Netz gefunden, Einbindung ab Phase 5"})
 
@@ -240,3 +251,49 @@ def header(now: datetime, latest: list[dict], availability: dict, raw_last: dict
 
 def overall(items: list[dict]) -> str:
     return worst(*[i["stufe"] for i in items if i["stufe"] != GEPLANT])
+
+
+# --------------------------------------------------------------------------------- Reiter "Strom" (Hauptzähler)
+STROM_WERT_HINWEIS_S = 15 * 60         # Zählerstand kommt mind. alle 5 min (auch unverändert)
+STROM_TELEGRAMM_STOERUNG_S = 5 * 60    # WattWächter sendet alle 10 s
+
+
+def strom_view(now: datetime, latest: list[dict], availability: dict, raw_last: dict,
+               anfang: dict, geraet: dict | None) -> dict:
+    """anfang: {"heute"|"monat"|"jahr": {"time", "value"} | None} = erster Bezugszählerstand im Zeitraum."""
+    def tel(quantity):
+        rec = _latest(latest, source="wattwaechter", asset_id="hausanschluss", quantity=quantity)
+        return None if rec is None else {"wert": rec["value"], "alter_s": age_s(now, rec["time"]), "zeit": rec["time"].isoformat()}
+
+    e_in, e_out, power = tel("energy_import_total"), tel("energy_export_total"), tel("active_power")
+    perioden = {}
+    for name, first in anfang.items():
+        if e_in is None or first is None:
+            perioden[name] = None
+            continue
+        perioden[name] = {"kwh": round(e_in["wert"] - first["value"], 3), "seit": first["time"].isoformat()}
+    phasen = {f"l{i}": {"leistung": tel(f"active_power_l{i}"), "strom": tel(f"current_l{i}"), "spannung": tel(f"voltage_l{i}")}
+              for i in (1, 2, 3)}
+    av = availability.get("wattwaechter", {})
+    tele = raw_last.get(("wattwaechter", "sensor"))
+    tele_age = age_s(now, tele["time"]) if tele else None
+
+    hinweise = []
+    if not av:
+        stufe = UNBEKANNT
+        hinweise.append("WattWächter hat sich noch nicht am EMS gemeldet")
+    elif av.get("status") != "online":
+        stufe = STOERUNG
+        hinweise.append("WattWächter offline (WLAN/Strom?)")
+    elif tele is None or tele_age > STROM_TELEGRAMM_STOERUNG_S:
+        stufe = HINWEIS
+        hinweise.append("Keine Zählerdaten – Lesekopf prüfen (Sitz/Ausrichtung am Zähler)")
+    elif e_in is None or e_in["alter_s"] > STROM_WERT_HINWEIS_S:
+        stufe = HINWEIS
+        hinweise.append("Telegramme kommen, aber kein gültiger Zählerstand")
+    else:
+        stufe = OK
+    return {"stufe": stufe, "hinweise": hinweise, "verbindung": {"status": av.get("status"),
+            "seit": av["since"].isoformat() if av.get("since") else None},
+            "telegramm_alter_s": tele_age, "bezug": e_in, "einspeisung": e_out, "leistung": power,
+            "perioden": perioden, "phasen": phasen, "geraet": geraet or {}}

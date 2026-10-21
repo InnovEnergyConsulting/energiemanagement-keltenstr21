@@ -1,0 +1,43 @@
+# Mapping WattWächter (Tasmota, SML-Lesekopf am Hauptzähler Iskra MT691)  ->  ems/v1/telemetry
+# Konzept: docs/Zaehler_WattWaechter_Konzept.md. Gerät sendet nach ems/v1/device/wattwaechter/tele/SENSOR,
+# der Normalizer ergänzt die Hülle (Empfangszeit) und legt die Rohdaten unter ems/v1/raw/wattwaechter/sensor ab.
+#
+# WICHTIG: Tasmota-SML meldet für jede Skriptzeile einen Wert – 0, solange der Zähler ihn nie gesendet hat.
+# Deshalb werden nur Felder mit "aktiv: true" übernommen. Ohne PIN liefert der MT691 nur Zählerstände;
+# Leistung/Phasenwerte erst nach PIN-Eingabe freischalten (Prüfschritte Konzept Kap. 5).
+profile: tasmota_wattwaechter
+mapping_version: 1
+source: wattwaechter
+stream: sensor
+point_prefix: haus.strom
+meter_key: MT691                      # Name des Zählers im SML-Skript (+1,3,s,0,9600,MT691)
+timezone_device: Europe/Berlin        # Tasmota "Time" = Ortszeit ohne Zone (Timezone 99 seit 21.10.2026)
+max_clock_skew_s: 120
+unchanged_total_every_s: 300         # unveränderten Zählerstand nur alle 5 min speichern (Telegramm alle 10 s)
+
+asset: {asset_id: hausanschluss, name: "Hausanschluss (Hauptzähler)", circuit_id: grid_connection}
+
+fields:
+  E_in:        {aktiv: true,  quantity: energy_import_total, role: grid_import, direction: import, unit: kWh, zaehler: true}
+  E_out:       {aktiv: true,  quantity: energy_export_total, role: grid_export, direction: export, unit: kWh, zaehler: true}
+  Power:       {aktiv: false, quantity: active_power,        role: grid_net,    direction: import_positive, unit: W}
+  power_L1:    {aktiv: false, quantity: active_power_l1,     role: grid_net,    direction: import_positive, unit: W}
+  power_L2:    {aktiv: false, quantity: active_power_l2,     role: grid_net,    direction: import_positive, unit: W}
+  power_L3:    {aktiv: false, quantity: active_power_l3,     role: grid_net,    direction: import_positive, unit: W}
+  Curr_p1:     {aktiv: false, quantity: current_l1,          role: grid,        direction: none, unit: A}
+  Curr_p2:     {aktiv: false, quantity: current_l2,          role: grid,        direction: none, unit: A}
+  Curr_p3:     {aktiv: false, quantity: current_l3,          role: grid,        direction: none, unit: A}
+  Volt_p1:     {aktiv: false, quantity: voltage_l1,          role: grid,        direction: none, unit: V}
+  Volt_p2:     {aktiv: false, quantity: voltage_l2,          role: grid,        direction: none, unit: V}
+  Volt_p3:     {aktiv: false, quantity: voltage_l3,          role: grid,        direction: none, unit: V}
+  Freq:        {aktiv: false, quantity: frequency,           role: grid,        direction: none, unit: Hz}
+  angle_L2_L1: {aktiv: false, quantity: phase_angle_u2_u1,   role: diagnosis,   direction: none, unit: deg}
+  angle_L3_L1: {aktiv: false, quantity: phase_angle_u3_u1,   role: diagnosis,   direction: none, unit: deg}
+  angle_L1:    {aktiv: false, quantity: phase_angle_l1,      role: diagnosis,   direction: none, unit: deg}
+  angle_L2:    {aktiv: false, quantity: phase_angle_l2,      role: diagnosis,   direction: none, unit: deg}
+  angle_L3:    {aktiv: false, quantity: phase_angle_l3,      role: diagnosis,   direction: none, unit: deg}
+
+# Plausibilität: verletzende Werte -> Qualitätsmeldung statt Messwert
+limits:
+  power_abs_w: 45000          # 3 x 63 A x 230 V
+  energy_jump_kwh: 5          # mehr Zuwachs zwischen zwei Telegrammen (10 s) ist unmöglich

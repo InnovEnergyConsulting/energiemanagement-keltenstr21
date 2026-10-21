@@ -108,3 +108,22 @@ def test_raum_filter_rejects_injection_and_spans_complete():
     assert list(SPANNEN) == ["30m", "60m", "180m", "6h", "12h", "24h", "7d", "30d"]
     assert stufig("controme", "room_climate", "room_actual") and stufig("eebus", "electricity", "consumption")
     assert not stufig("controme", "heat", "return_flow")     # Rücklauf kommt jede Minute -> Lücken zeigen
+
+
+def test_strom_states_and_periods():
+    av_on = {"wattwaechter": {"status": "online", "since": NOW - timedelta(hours=1)}}
+    # online, aber keine Telegramme -> Hinweis "Lesekopf prüfen"
+    st = views.strom_view(NOW, [], av_on, {}, {"heute": None}, None)
+    assert st["stufe"] == "hinweis" and "Lesekopf" in st["hinweise"][0]
+    # offline -> Störung
+    st = views.strom_view(NOW, [], {"wattwaechter": {"status": "offline", "since": NOW}}, {}, {}, None)
+    assert st["stufe"] == "stoerung"
+    # Daten da -> ok, Verbrauch heute als Zählerdifferenz
+    latest = [rec(1, 18240.0, source="wattwaechter", asset_id="hausanschluss", quantity="energy_import_total")]
+    raw = {("wattwaechter", "sensor"): {"time": NOW - timedelta(seconds=10), "http_status": 0}}
+    st = views.strom_view(NOW, latest, av_on, raw, {"heute": {"time": NOW - timedelta(hours=8), "value": 18234.0}}, None)
+    assert st["stufe"] == "ok" and st["perioden"]["heute"]["kwh"] == 6.0 and st["leistung"] is None
+    fb = views.fb_view(NOW, LATEST, STATES)
+    wp = views.wp_view(NOW, LATEST, STATES, AVAIL, [])
+    items = {i["id"]: i for i in views.header(NOW, LATEST, AVAIL, raw, {}, fb, wp, 9, st)}
+    assert items["strom"]["stufe"] == "ok" and items["strom"]["text"] == "18.240 kWh"

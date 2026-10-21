@@ -15,6 +15,7 @@ SERIES = {
     "fb": 'r.source == "controme" and ((r.medium == "room_climate" and (r.role == "room_actual" or '
           'r.role == "setpoint_effective") and r.quantity != "relative_humidity") or r.role == "return_flow" '
           'or (r.medium == "heat" and (r.role == "flow_actual" or r.role == "flow_setpoint")))',
+    "strom": 'r.source == "wattwaechter" and r.asset_id == "hausanschluss" and r.role != "diagnosis"',
     "wp": 'r.source == "eebus" and ((r.asset_id == "vaillant_wp" and r.quantity == "active_power") or '
           'r.asset_id == "vaillant_warmwasser" or r.asset_id == "vaillant_zone_1" or r.asset_id == "vaillant_aussenfuehler")',
 }
@@ -105,7 +106,32 @@ class Influx:
         return [{"time": r.get_time(), "source": r.values.get("source"), "kind": r.values.get("kind"),
                  "detail": r.get_value()} for r in self._records(flux)]
 
-    def series(self, flt: str, spanne: str) -> dict:
+    def counter_first(self, asset_id: str, quantity: str, start: datetime) -> dict | None:
+        """Erster Zählerstand ab start (für Verbrauch heute/Monat/Jahr als Zählerdifferenz)."""
+        flux = f'''from(bucket: "ems_detail") |> range(start: {_t(start)})
+  |> filter(fn: (r) => r._measurement == "telemetry" and r._field == "value" and r.asset_id == "{asset_id}" and r.quantity == "{quantity}")
+  |> first()'''
+        for r in self._records(flux):
+            return {"time": r.get_time(), "value": r.get_value()}
+        return None
+
+    def device_state(self, source: str) -> dict | None:
+        """Letzte Tasmota-STATE-Meldung (WLAN-Signal, Laufzeit) aus den Rohdaten."""
+        flux = f'''from(bucket: "ems_raw") |> range(start: -1h)
+  |> filter(fn: (r) => r._measurement == "raw" and r.source == "{source}" and r.stream == "state" and r._field == "payload")
+  |> last()'''
+        import json
+        for r in self._records(flux):
+            try:
+                p = json.loads(r.get_value())
+            except ValueError:
+                return None
+            wifi = p.get("Wifi", {}) if isinstance(p, dict) else {}
+            return {"zeit": r.get_time().isoformat(), "signal_dbm": wifi.get("Signal"), "uptime": p.get("Uptime"),
+                    "ssid": wifi.get("SSId")}
+        return None
+
+    def series(self, flt: str, spanne: str, fn: str = "mean") -> dict:
         secs, every = SPANNEN[spanne]
         now = utcnow()
         start = now - timedelta(seconds=secs)
@@ -115,7 +141,7 @@ class Influx:
   |> group(columns: {group})'''
         main = f'''from(bucket: "ems_detail") |> range(start: {_t(start)}, stop: {_t(now)})
 {base}
-  |> aggregateWindow(every: {every}, fn: mean, createEmpty: false)'''
+  |> aggregateWindow(every: {every}, fn: {fn}, createEmpty: false)'''
         before = f'''from(bucket: "ems_detail") |> range(start: {_t(start - timedelta(seconds=HALTEN_S))}, stop: {_t(start)})
 {base}
   |> last()'''

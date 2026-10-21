@@ -9,7 +9,7 @@
                  ["24h", "24 h"], ["7d", "7 Tage"], ["30d", "30 Tage"]];
   var SPANNE_MS = { "30m": 18e5, "60m": 36e5, "180m": 108e5, "6h": 216e5, "12h": 432e5, "24h": 864e5, "7d": 6048e5, "30d": 2592e6 };
   var state = { lage: null, tab: "fb", spanne: {}, verlauf: {}, raum: null, raumDaten: null, lastOk: null };
-  ["fb", "wp", "raum"].forEach(function (b) { var s = store("ems-spanne-" + b); state.spanne[b] = SPANNE_MS[s] ? s : "24h"; });
+  ["fb", "wp", "raum", "strom"].forEach(function (b) { var s = store("ems-spanne-" + b); state.spanne[b] = SPANNE_MS[s] ? s : "24h"; });
 
   // ------------------------------------------------------------------ Hilfen
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -192,6 +192,9 @@
     var wpSt = l.kopf.filter(function (k) { return k.id === "wp"; })[0];
     $("b-wp").className = "badge" + (wpSt && wpSt.stufe !== "ok" ? " " + wpSt.stufe : "");
     $("b-wp").textContent = nwp ? String(nwp) : (l.wp.verbindung.status === "online" ? "verbunden" : "–");
+    var st = l.strom;
+    $("b-strom").className = "badge" + (st.stufe !== "ok" ? " " + st.stufe : "");
+    $("b-strom").textContent = st.stufe === "ok" ? (st.leistung ? num(st.leistung.wert / 1000, 1) + " kW" : "aktiv") : st.hinweise.length ? "1" : "–";
     $("b-shelly").textContent = l.shelly.geraete.length ? l.shelly.geraete.length + " erkannt" : "geplant";
   }
 
@@ -392,7 +395,97 @@
     legend($("wp-legend-temp"), ts);
   }
 
-  // ------------------------------------------------------------------ Reiter 3
+  // ------------------------------------------------------------------ Reiter Strom
+  function kwh(v) { return v == null ? "–" : num(v, v >= 100 ? 0 : 1); }
+  function renderStrom(st) {
+    var h = "", p = st.leistung, b = st.bezug, per = st.perioden;
+    if (st.hinweise.length) h += kpi(st.stufe, "Zustand", esc(st.hinweise[0]), st.verbindung.status ? "WattWächter " + st.verbindung.status : "");
+    h += p ? kpi("", p.wert >= 0 ? "Netzbezug jetzt" : "Einspeisung jetzt", num(Math.abs(p.wert), 0) + " <small>W</small>", "vor " + ago(p.alter_s))
+      : kpi("geplant", "Leistung jetzt", "nach PIN-Freischaltung", "ohne PIN liefert der Zähler nur Zählerstände");
+    ["heute", "monat", "jahr"].forEach(function (k) {
+      var x = per[k], lab = { heute: "Bezug heute", monat: "Bezug dieser Monat", jahr: "Bezug dieses Jahr" }[k];
+      h += x ? kpi("", lab, kwh(x.kwh) + " <small>kWh</small>", "seit " + when(x.seit))
+        : kpi("unbekannt", lab, "–", "noch kein Zählerstand");
+    });
+    h += b ? kpi("", "Zählerstand Bezug (1.8.0)", num(b.wert, b.wert % 1 ? 1 : 0) + " <small>kWh</small>", "vor " + ago(b.alter_s))
+      : kpi("unbekannt", "Zählerstand Bezug (1.8.0)", "–", "noch kein Telegramm");
+    var e = st.einspeisung;
+    h += kpi(e ? "" : "unbekannt", "Zählerstand Einspeisung (2.8.0)", e ? num(e.wert, e.wert % 1 ? 1 : 0) + " <small>kWh</small>" : "–", e ? "vor " + ago(e.alter_s) : "noch keine PV");
+    $("strom-kpis").innerHTML = h;
+
+    var ph = st.phasen, any = ["l1", "l2", "l3"].some(function (k) { return ph[k].leistung || ph[k].strom || ph[k].spannung; });
+    if (!any) {
+      $("strom-phasen").innerHTML = '<div class="empty">Leistung, Strom und Spannung je Phase liefert der Zähler erst nach Eingabe der PIN (vom Netzbetreiber). Danach im Mapping freischalten – die Anzeige erscheint hier automatisch.</div>';
+    } else {
+      var maxW = Math.max(1000, Math.max.apply(null, ["l1", "l2", "l3"].map(function (k) { return ph[k].leistung ? Math.abs(ph[k].leistung.wert) : 0; })));
+      $("strom-phasen").innerHTML = '<div class="scroll"><table><thead><tr><th>Phase</th><th class="n">Leistung W</th><th>Last</th><th class="n">Strom A</th><th class="n">Spannung V</th></tr></thead><tbody>' +
+        ["l1", "l2", "l3"].map(function (k) {
+          var x = ph[k], w = x.leistung ? x.leistung.wert : null, u = x.spannung ? x.spannung.wert : null;
+          var uBad = u != null && (u < 207 || u > 253);
+          return "<tr><td>" + k.toUpperCase() + '</td><td class="n">' + num(w, 0) + '</td><td><span class="devbar"><i style="left:0;width:' + (w == null ? 0 : Math.min(100, Math.abs(w) / maxW * 100)) + '%"></i></span></td><td class="n">' +
+            num(x.strom ? x.strom.wert : null, 2) + '</td><td class="n">' + (uBad ? '<span class="tag hinweis">' + num(u) + "</span>" : num(u)) + "</td></tr>";
+        }).join("") + "</tbody></table></div>";
+    }
+    var g = st.geraet, chips = [];
+    chips.push('<span class="chip">WattWächter: <b>' + esc(st.verbindung.status === "online" ? "verbunden" : st.verbindung.status || "unbekannt") + "</b>" + (st.verbindung.seit ? " seit " + esc(when(st.verbindung.seit)) : "") + "</span>");
+    chips.push('<span class="chip">Telegramm: <b>' + (st.telegramm_alter_s == null ? "noch keins" : "vor " + ago(st.telegramm_alter_s)) + "</b></span>");
+    if (g.signal_dbm != null) chips.push('<span class="chip' + (g.signal_dbm < -75 ? " hinweis" : "") + '">WLAN: <b>' + g.signal_dbm + " dBm</b>" + (g.signal_dbm < -75 ? " – schwach" : "") + "</span>");
+    if (g.uptime) chips.push('<span class="chip">Laufzeit: <b>' + esc(g.uptime.replace("T", " Tage ")) + "</b></span>");
+    chips.push('<span class="chip geplant">PIN: <b>' + (p ? "freigeschaltet" : "fehlt") + "</b> – Leistungswerte erst mit PIN</span>");
+    $("strom-geraet").innerHTML = chips.join("");
+    renderStromCharts();
+  }
+  function bucketStart(t, day) {
+    var off = tzOffset(t), size = day ? 864e5 : 36e5;
+    return Math.floor((t + off) / size) * size - off;
+  }
+  function barChart(el, bars, opt) {
+    if (!bars.length) { el.innerHTML = '<div class="empty">' + esc(opt.leer) + "</div>"; return; }
+    var W = 640, H = 230, L = 44, R = 10, T = 12, B = 24, x0 = opt.from, x1 = opt.to;
+    var ymax = Math.max(opt.minMax || 1, Math.max.apply(null, bars.map(function (b) { return b[2]; })));
+    var step = niceStep(ymax, 4); ymax = Math.ceil(ymax / step) * step;
+    var sx = function (t) { return L + (t - x0) / Math.max(1, x1 - x0) * (W - L - R); };
+    var sy = function (v) { return T + (ymax - v) / ymax * (H - T - B); };
+    var out = ['<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(opt.label) + '">'];
+    for (var v = 0; v <= ymax + step / 2; v += step) {
+      out.push('<line x1="' + L + '" x2="' + (W - R) + '" y1="' + sy(v) + '" y2="' + sy(v) + '" stroke="' + css("--line") + '"/>');
+      out.push('<text x="' + (L - 6) + '" y="' + (sy(v) + 3) + '" text-anchor="end">' + num(v, step < 1 ? 1 : 0) + "</text>");
+    }
+    timeTicks(x0, x1).forEach(function (tk) { out.push('<text x="' + sx(tk[0]) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(tk[1]) + "</text>"); });
+    bars.forEach(function (b) {
+      var xa = Math.max(L, sx(b[0])), xb = Math.min(W - R, sx(b[1])), w = Math.max(1, xb - xa - 2);
+      out.push('<rect x="' + (xa + 1).toFixed(1) + '" y="' + sy(b[2]).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + (sy(0) - sy(b[2])).toFixed(1) + '" fill="' + (b[3] ? css("--chart-muted") : css("--chart")) + '"><title>' +
+        esc(fmtDateTime.format(new Date(b[0])) + ": " + num(b[2], 2) + " kWh" + (b[3] ? " (angefangen)" : "")) + "</title></rect>");
+    });
+    out.push("</svg>");
+    el.innerHTML = out.join("");
+  }
+  function renderStromCharts() {
+    var v = state.verlauf["strom|" + state.spanne.strom];
+    if (!v) return;
+    var day = SPANNE_MS[state.spanne.strom] > 864e5;
+    var e = v.reihen.filter(function (s) { return s.quantity === "energy_import_total"; })[0];
+    var bars = [];
+    if (e && e.punkte.length) {
+      var last = {}, order = [];
+      if (e.vorher) { last[bucketStart(e.vorher[0], day)] = e.vorher[1]; order.push(bucketStart(e.vorher[0], day)); }
+      e.punkte.forEach(function (p) { var b = bucketStart(p[0], day); if (!(b in last)) order.push(b); last[b] = p[1]; });
+      for (var i = 1; i < order.length; i++) {
+        var b0 = order[i];
+        bars.push([b0, b0 + (day ? 864e5 : 36e5), Math.max(0, last[b0] - last[order[i - 1]]), b0 + (day ? 864e5 : 36e5) > v.bis]);
+      }
+    }
+    $("strom-bar-titel").textContent = "Netzbezug je " + (day ? "Tag" : "Stunde");
+    $("strom-hinweis").textContent = "– Verbrauch aus Zählerdifferenzen" + (e && e.punkte.length && e.punkte.every(function (p) { return p[1] % 1 === 0; }) ? "; ohne PIN nur ganze kWh, Stundenwerte daher grob" : "");
+    barChart($("strom-chart-bars"), bars, { from: v.von, to: v.bis, label: "Netzbezug", minMax: 1, leer: "Noch keine Zählerstände im gewählten Zeitraum" });
+    legend($("strom-legend-bars"), bars.length ? [{ name: "kWh je " + (day ? "Tag" : "Stunde"), color: css("--chart") }, { name: "laufender Zeitraum", muted: true }] : []);
+    var pw = v.reihen.filter(function (s) { return s.quantity === "active_power"; })
+      .map(function (s) { return { name: "Leistung (+ Bezug / − Einspeisung)", punkte: s.punkte, color: css("--chart"), area: true, width: 1.5 }; });
+    lineChart($("strom-chart-power"), pw, chartOpt(v, { unit: "W", digits: 0, minSpan: 500, label: "Leistung Hausanschluss", leer: "Leistungswerte erst nach PIN-Freischaltung am Zähler" }));
+    legend($("strom-legend-power"), pw);
+  }
+
+  // ------------------------------------------------------------------ Reiter Shelly
   function renderShelly(sh) {
     $("sh-on").textContent = "– von " + sh.geraete.length;
     $("sh-devs").innerHTML = sh.geraete.map(function (d) {
@@ -416,7 +509,7 @@
     return getJSON("api/lage").then(function (l) {
       state.lage = l; state.lastOk = new Date();
       $("fehler").hidden = true;
-      renderHead(l); renderFb(l.fb); renderWp(l.wp); renderShelly(l.shelly);
+      renderHead(l); renderFb(l.fb); renderWp(l.wp); renderStrom(l.strom); renderShelly(l.shelly);
     }).catch(function (e) {
       $("fehler").hidden = false;
       $("fehler").textContent = "Keine aktuellen Daten vom Leitstand-Dienst (" + e.message + ")" +
@@ -427,7 +520,7 @@
   function refreshMs(sp) { return SPANNE_MS[sp] <= 108e5 ? 6e4 : 3e5; }   // kurze Spannen jede Minute neu
   function loadVerlauf(bereich, force) {
     var key = bereich + "|" + state.spanne[bereich], cached = state.verlauf[key];
-    var render = bereich === "fb" ? renderFbCharts : renderWpCharts;
+    var render = { fb: renderFbCharts, wp: renderWpCharts, strom: renderStromCharts }[bereich];
     if (cached && !force && Date.now() - cached._geladen < refreshMs(state.spanne[bereich])) { render(); return; }
     getJSON("api/verlauf?bereich=" + bereich + "&spanne=" + state.spanne[bereich]).then(function (v) {
       v._geladen = Date.now(); state.verlauf[key] = v;
@@ -446,7 +539,7 @@
     });
     store("ems-tab", name);
     if (push && location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
-    if (name === "fb" || name === "wp") loadVerlauf(name);
+    if (name === "fb" || name === "wp" || name === "strom") loadVerlauf(name);
   }
   tabs.forEach(function (t, i) {
     t.addEventListener("click", function () { show(t.getAttribute("data-hash"), true); });
@@ -481,7 +574,7 @@
   window.addEventListener("hashchange", function () { var h = location.hash.slice(1); if (h && h !== state.tab && $("p-" + h)) show(h); });
   if (window.matchMedia) {
     var mq = window.matchMedia("(prefers-color-scheme: dark)");
-    var rerender = function () { if (state.lage) { renderFbCharts(); renderWpCharts(); renderRaumCharts(); } };
+    var rerender = function () { if (state.lage) { renderFbCharts(); renderWpCharts(); renderStromCharts(); renderRaumCharts(); } };
     if (mq.addEventListener) mq.addEventListener("change", rerender);
   }
 

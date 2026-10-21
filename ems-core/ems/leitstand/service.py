@@ -12,6 +12,8 @@ import json
 import mimetypes
 import threading
 import time
+from datetime import timezone
+from zoneinfo import ZoneInfo
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -58,6 +60,14 @@ class Leitstand:
             self._cache[key] = (time.monotonic(), value)
         return value
 
+    def strom_series(self, spanne: str) -> dict:
+        """Zählerstände als letzter Wert je Fenster (für Differenzen), Leistung/Phasen als Mittel."""
+        f = SERIES["strom"]
+        totals = self.influx.series(f + ' and r.quantity =~ /_total$/', spanne, fn="last")
+        others = self.influx.series(f + ' and not (r.quantity =~ /_total$/)', spanne)
+        totals["reihen"] += others["reihen"]
+        return totals
+
     def lage(self) -> dict:
         now = utcnow()
         ix = self.influx
@@ -65,9 +75,16 @@ class Leitstand:
         shelly = load_shelly(self.shelly_path)
         fb = views.fb_view(now, latest, states)
         wp = views.wp_view(now, latest, states, avail, ix.quality("-7d"))
-        kopf = views.header(now, latest, avail, ix.raw_last(), ix.backups(), fb, wp, len(shelly))
+        raw_last = ix.raw_last()
+        local = now.astimezone(ZoneInfo("Europe/Berlin"))
+        midnight = local.replace(hour=0, minute=0, second=0, microsecond=0)
+        starts = {"heute": midnight, "monat": midnight.replace(day=1), "jahr": midnight.replace(month=1, day=1)}
+        anfang = {k: ix.counter_first("hausanschluss", "energy_import_total", v.astimezone(timezone.utc))
+                  for k, v in starts.items()}
+        strom = views.strom_view(now, latest, avail, raw_last, anfang, ix.device_state("wattwaechter"))
+        kopf = views.header(now, latest, avail, raw_last, ix.backups(), fb, wp, len(shelly), strom)
         return {"stand": iso(now), "gesamt": views.overall(kopf), "kopf": kopf, "fb": fb, "wp": wp,
-                "shelly": {"geraete": shelly}}
+                "strom": strom, "shelly": {"geraete": shelly}}
 
 
 def make_handler(app: Leitstand):
@@ -115,6 +132,8 @@ def make_handler(app: Leitstand):
                             return self._json({"fehler": str(e)}, 400)
                         key = f"r|{raum}|{spanne}"
                     ttl = 20 if SPANNEN[spanne][0] <= 3 * 3600 else 60
+                    if key.startswith("v|strom|"):
+                        return self._json(app._cached(key, lambda: app.strom_series(spanne), ttl=ttl))
                     return self._json(app._cached(key, lambda: app.influx.series(flt, spanne), ttl=ttl))
                 name = "index.html" if url.path in ("/", "/index.html") else url.path.lstrip("/")
                 file = (STATIC / name).resolve()
