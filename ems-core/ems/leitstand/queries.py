@@ -122,6 +122,20 @@ class Influx:
   |> keep(columns: ["_time", "_value"]) |> sort(columns: ["_time"])'''
         return [(r.get_time(), r.get_value()) for r in self._records(flux)]
 
+    def points_between(self, asset_id: str, quantity: str, start: datetime, stop: datetime) -> list[tuple[datetime, float]]:
+        flux = f'''from(bucket: "ems_detail") |> range(start: {_t(start)}, stop: {_t(stop)})
+  |> filter(fn: (r) => r._measurement == "telemetry" and r._field == "value" and r.asset_id == "{asset_id}" and r.quantity == "{quantity}")
+  |> keep(columns: ["_time", "_value"]) |> sort(columns: ["_time"])'''
+        return [(r.get_time(), r.get_value()) for r in self._records(flux)]
+
+    def first_time(self, asset_id: str, quantity: str) -> datetime | None:
+        flux = f'''from(bucket: "ems_detail") |> range(start: -400d)
+  |> filter(fn: (r) => r._measurement == "telemetry" and r._field == "value" and r.asset_id == "{asset_id}" and r.quantity == "{quantity}")
+  |> first() |> keep(columns: ["_time"])'''
+        for r in self._records(flux):
+            return r.get_time()
+        return None
+
     def device_state(self, source: str) -> dict | None:
         """Letzte Tasmota-STATE-Meldung (WLAN-Signal, Laufzeit) aus den Rohdaten."""
         flux = f'''from(bucket: "ems_raw") |> range(start: -1h)

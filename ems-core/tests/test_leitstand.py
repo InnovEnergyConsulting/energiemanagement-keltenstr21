@@ -162,3 +162,24 @@ def test_messages_resolved_and_connection_state():
     raw = {("controme", "temps"): {"time": NOW, "http_status": 200}}
     items = {i["id"]: i for i in views.header(NOW, LATEST, AVAIL, raw, {}, views.fb_view(NOW, LATEST, STATES), wp2, 0)}
     assert items["wp"]["stufe"] == "hinweis"      # Verbindungsaufbau ist keine Störung
+
+
+def test_wp_energy_split_and_gaps():
+    m = lambda minutes: NOW - timedelta(minutes=minutes)
+    # Heizen mit 500 W, Warmwasserladung 2 kW von min 60 bis 30; Temperatur steigt verzögert ab min 50 um 6 K
+    power = [(m(120 - 5 * i), 2000.0 if 30 <= 120 - 5 * i <= 60 else 500.0) for i in range(25)]
+    temps = [(m(120), 45.0), (m(55), 45.0), (m(50), 47.0), (m(40), 49.0), (m(30), 51.0), (m(10), 50.5)]
+    (start, end), = views.dhw_periods(temps, power)
+    assert start == m(60) and end == m(25)                  # Grenzen aus der Leistung, nicht aus der Temperatur
+    e = views.wp_energy(power, temps, m(120), NOW)
+    assert e["ladungen"] == 1 and abs(e["warmwasser"] - 1.104) < 0.01 and abs(e["gesamt"] - 1.875) < 0.01
+    # Lücke 60 min (VR 940 aus) wird nicht überbrückt
+    gap = [p for p in power if not (m(90) < p[0] < m(30))]
+    e2 = views.wp_energy(gap, [], m(120), NOW)
+    assert e2["abdeckung_h"] == 1.0 and e2["warmwasser"] == 0.0
+
+
+def test_dhw_periods_ignore_small_fluctuation():
+    m = lambda minutes: NOW - timedelta(minutes=minutes)
+    temps = [(m(60), 50.0), (m(50), 51.0), (m(40), 50.5), (m(30), 51.5)]       # nur 1,5 K -> keine Ladung
+    assert views.dhw_periods(temps) == []

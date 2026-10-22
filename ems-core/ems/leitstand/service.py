@@ -12,7 +12,7 @@ import json
 import mimetypes
 import threading
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time as dtime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -49,6 +49,7 @@ class Leitstand:
         self.influx, self.shelly_path = influx, shelly_path
         self._lock = threading.Lock()
         self._cache: dict = {}
+        self._wp_tage: dict = {}            # abgeschlossene Tage -> berechnete WP-Energie (ändern sich nicht mehr)
 
     def _cached(self, key, fn, ttl=CACHE_S):
         with self._lock:
@@ -74,6 +75,45 @@ class Leitstand:
                                 for a, b, w, ok in est["abschnitte"] if b.timestamp() * 1000 >= totals["von"]]
         return totals
 
+    def _wp_tag(self, d: date, now: datetime, first: datetime) -> dict:
+        tz = ZoneInfo("Europe/Berlin")
+        if d in self._wp_tage:
+            return self._wp_tage[d]
+        start = datetime.combine(d, dtime(0), tz).astimezone(timezone.utc)
+        end = datetime.combine(d + timedelta(days=1), dtime(0), tz).astimezone(timezone.utc)
+        stop = min(end, now)
+        ix = self.influx
+        power = ix.points_between("vaillant_wp", "active_power", start - timedelta(minutes=20), stop)
+        temps = ix.points_between("vaillant_warmwasser", "temperature", start - timedelta(hours=1), stop)
+        e = views.wp_energy(power, temps, start, stop)
+        moeglich = max(0.0, (stop - max(start, first)).total_seconds() / 3600)
+        e.update({"datum": d.isoformat(), "moeglich_h": round(moeglich, 2),
+                  "abdeckung_pct": round(100 * e["abdeckung_h"] / moeglich) if moeglich > 0 else None})
+        if end <= now:
+            self._wp_tage[d] = e
+        return e
+
+    def wp_energie(self, now: datetime) -> dict | None:
+        """WP-Verbrauch heute/Monat/Jahr + Tageswerte, aus der EEBUS-Leistung berechnet (siehe views.wp_energy)."""
+        first = self._cached("wp_first", lambda: self.influx.first_time("vaillant_wp", "active_power"), ttl=3600)
+        if first is None:
+            return None
+        tz = ZoneInfo("Europe/Berlin")
+        today = now.astimezone(tz).date()
+        d = max(first.astimezone(tz).date(), date(today.year, 1, 1))
+        tage = []
+        while d <= today:
+            tage.append(self._wp_tag(d, now, first))
+            d += timedelta(days=1)
+
+        def summe(sel):
+            keys = ("heizung", "warmwasser", "gesamt", "abdeckung_h", "moeglich_h", "ladungen")
+            out = {k: round(sum(t[k] for t in sel), 3) for k in keys}
+            out["abdeckung_pct"] = round(100 * out["abdeckung_h"] / out["moeglich_h"]) if out["moeglich_h"] else None
+            return out
+        return {"heute": tage[-1], "monat": summe([t for t in tage if t["datum"][:7] == today.isoformat()[:7]]),
+                "jahr": summe(tage), "seit": first.isoformat(), "tage": tage[-30:]}
+
     def lage(self) -> dict:
         now = utcnow()
         ix = self.influx
@@ -81,6 +121,7 @@ class Leitstand:
         shelly = load_shelly(self.shelly_path)
         fb = views.fb_view(now, latest, states)
         wp = views.wp_view(now, latest, states, avail, ix.quality("-7d"))
+        wp["energie_berechnet"] = self.wp_energie(now)
         raw_last = ix.raw_last()
         local = now.astimezone(ZoneInfo("Europe/Berlin"))
         midnight = local.replace(hour=0, minute=0, second=0, microsecond=0)

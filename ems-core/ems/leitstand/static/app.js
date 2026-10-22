@@ -368,9 +368,10 @@
     chips.push('<span class="chip">Heizen Zone 1: <b>' + esc(z.heizbetrieb || "–") + "</b></span>");
     chips.push('<span class="chip">Schnellladung: <b>' + (w.schnellladung == null ? "–" : w.schnellladung ? "aktiv" : "inaktiv") + "</b></span>");
     chips.push(wp.energie ? '<span class="chip">Energie: <b>' + num(wp.energie.wert, 1) + " kWh</b></span>"
-      : '<span class="chip geplant">Energie (kWh): <b>nicht über EEBUS</b> – eigener WP-Zähler folgt</span>');
+      : '<span class="chip">Energie: <b>berechnet aus Leistung</b> – Zählerwerte liefert Vaillant nicht per EEBUS</span>');
     $("wp-chips").innerHTML = chips.join("");
 
+    renderWpEnergie(wp.energie_berechnet);
     $("wp-msgs").innerHTML = wp.meldungen.map(function (m) {
       var tag = m.aktuell ? ' <span class="tag ' + (m.stufe === "ok" ? "" : m.stufe) + '">aktuell</span>'
         : m.erledigt ? ' <span class="tag">erledigt</span>' : ' <span class="tag hinweis">besteht</span>';
@@ -378,6 +379,40 @@
         '</td><td class="n">' + (m.aktuell ? "–" : m.anzahl) + '</td><td class="n dim">' + esc(when(m.erstmals)) + "</td></tr>";
     }).join("") || '<tr><td colspan="4" class="dim">keine Meldungen</td></tr>';
     renderWpCharts();
+  }
+  function renderWpEnergie(e) {
+    if (!e) { $("wp-energie").innerHTML = kpi("unbekannt", "WP-Verbrauch", "–", "noch keine Leistungswerte"); $("wp-chart-tage").innerHTML = ""; return; }
+    function k(lab, x, seit) {
+      var lueck = x.abdeckung_pct != null && x.abdeckung_pct < 95;
+      return kpi(lueck ? "hinweis" : "", lab, num(x.gesamt, 1) + " <small>kWh</small>",
+        "Heizung " + num(x.heizung, 1) + " · Warmwasser " + num(x.warmwasser, 1) + (lueck ? " · Daten nur für " + x.abdeckung_pct + " % der Zeit" : "") + (seit ? " · " + seit : ""),
+        x.ladungen + " Warmwasserladungen erkannt; Messabdeckung " + num(x.abdeckung_h, 1) + " von " + num(x.moeglich_h, 1) + " h");
+    }
+    var first = new Date(e.seit), seit = "seit " + fmtDate.format(first);
+    $("wp-energie").innerHTML = k("Verbrauch heute", e.heute) + k("Verbrauch dieser Monat", e.monat, e.monat.moeglich_h < 24 * 28 ? seit : "") + k("Verbrauch dieses Jahr", e.jahr, seit);
+    var tage = e.tage, el = $("wp-chart-tage");
+    if (!tage.length) { el.innerHTML = '<div class="empty">Noch keine Tageswerte</div>'; return; }
+    var W = 640, H = 200, L = 44, R = 10, T = 12, B = 24, n = Math.max(7, tage.length);
+    var ymax = Math.max(1, Math.max.apply(null, tage.map(function (t) { return t.gesamt; })));
+    var step = niceStep(ymax, 4); ymax = Math.ceil(ymax / step) * step;
+    var bw = (W - L - R) / n, sy = function (v) { return T + (ymax - v) / ymax * (H - T - B); };
+    var out = ['<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="WP-Verbrauch je Tag">'];
+    for (var v = 0; v <= ymax + step / 2; v += step) {
+      out.push('<line x1="' + L + '" x2="' + (W - R) + '" y1="' + sy(v) + '" y2="' + sy(v) + '" stroke="' + css("--line") + '"/>');
+      out.push('<text x="' + (L - 6) + '" y="' + (sy(v) + 3) + '" text-anchor="end">' + num(v, step < 1 ? 1 : 0) + "</text>");
+    }
+    tage.forEach(function (t, i) {
+      var x = L + (n - tage.length + i) * bw + 2, w = Math.max(2, bw - 4), d = new Date(t.datum + "T12:00:00");
+      var heute = i === tage.length - 1, op = heute ? ' opacity="0.55"' : "";
+      var tip = fmtDate.format(d) + ": " + num(t.gesamt, 1) + " kWh (Heizung " + num(t.heizung, 1) + ", Warmwasser " + num(t.warmwasser, 1) + ")" + (t.abdeckung_pct != null && t.abdeckung_pct < 95 ? " – Daten nur " + t.abdeckung_pct + " %" : "") + (heute ? " – laufender Tag" : "");
+      out.push('<g><title>' + esc(tip) + '</title><rect x="' + x.toFixed(1) + '" y="' + sy(t.heizung).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + (sy(0) - sy(t.heizung)).toFixed(1) + '" fill="' + css("--chart") + '"' + op + '/>' +
+        '<rect x="' + x.toFixed(1) + '" y="' + sy(t.gesamt).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + (sy(t.heizung) - sy(t.gesamt)).toFixed(1) + '" fill="' + css("--chart-2") + '"' + op + "/></g>");
+      if (tage.length <= 10 || i % Math.ceil(tage.length / 8) === 0 || heute)
+        out.push('<text x="' + (x + w / 2).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(heute ? "heute" : fmtDate.format(d)) + "</text>");
+    });
+    out.push("</svg>");
+    el.innerHTML = out.join("");
+    legend($("wp-legend-tage"), [{ name: "Heizung", color: css("--chart") }, { name: "Warmwasser", color: css("--chart-2") }, { name: "heute (laufend) heller", muted: true }]);
   }
   function renderWpCharts() {
     var v = state.verlauf["wp|" + state.spanne.wp];

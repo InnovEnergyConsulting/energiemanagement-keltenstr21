@@ -3,7 +3,7 @@
 Gestaltung nach docs/design/Dashboard-Entwurf.html (ISA-101): Normalbetrieb ohne Farbe, Stufen nur für
 Abweichungen. Stufen: ok | hinweis | stoerung | geplant | unbekannt. Fehlende Werte bleiben None, nie 0.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 
 OK, HINWEIS, STOERUNG, GEPLANT, UNBEKANNT = "ok", "hinweis", "stoerung", "geplant", "unbekannt"
 RANK = {OK: 0, GEPLANT: 0, UNBEKANNT: 1, HINWEIS: 1, STOERUNG: 2}
@@ -350,3 +350,71 @@ def power_from_steps(points: list[tuple[datetime, float]], now: datetime) -> dic
         if since > 60:
             out["obergrenze_w"] = round(3_600_000 / since)
     return out
+
+
+# --------------------------------------------------------------------------------- WP-Energie aus EEBUS-Leistung
+# Der VR 940 liefert über EEBUS keine Energiezähler, nur die Leistung (acPowerTotal). Energie = Trapez-Integral der
+# Leistung; Lücken > WP_LUECKE_S (VR 940 aus/getrennt) werden NICHT überbrückt, sondern als fehlende Abdeckung gezeigt.
+# Aufteilung: zusammenhängender Anstieg der Warmwassertemperatur um >= DHW_MIN_RISE_K = Warmwasserladung.
+# Abgleich mit myVAILLANT (Jahr bis 21.10.2026 24:00, App 6,2 / 8,2 / 14,3 kWh): siehe docs/EEBUS_Datenanalyse.md Kap. 5.
+WP_LUECKE_S = 15 * 60
+DHW_MIN_RISE_K = 2.0
+
+
+def dhw_periods(temps: list[tuple[datetime, float]], power: list[tuple[datetime, float]] | None = None
+                ) -> list[tuple[datetime, datetime]]:
+    """Warmwasserladungen. Der Temperaturanstieg (>= DHW_MIN_RISE_K) zeigt, DASS geladen wurde; die Grenzen kommen aus
+    der Leistung, denn der Fühler reagiert 5–15 min verzögert (gemessen 21.10.2026): Beginn = Leistungssprung vor dem
+    Anstieg, Ende = Leistungsabfall danach. Ohne Leistungsdaten gilt der Temperaturanstieg selbst."""
+    periods, i = [], 0
+    while i < len(temps) - 1:
+        j = peak = i
+        while (j + 1 < len(temps) and temps[j + 1][1] >= temps[peak][1] - 0.5
+               and (temps[j + 1][0] - temps[j][0]).total_seconds() < 3600):
+            j += 1
+            if temps[j][1] > temps[peak][1]:
+                peak = j
+        lo = min(range(i, peak + 1), key=lambda k: (temps[k][1], -k))   # letzter Tiefpunkt vor dem Anstieg
+        if temps[peak][1] - temps[lo][1] >= DHW_MIN_RISE_K:
+            start, end = temps[lo][0], temps[peak][0]
+            if power:
+                load = sorted(p for t, p in power if start <= t <= end)
+                if load:
+                    level = load[len(load) // 2] * 0.5          # halbe Ladeleistung als Schwelle
+                    before = [(t, p) for t, p in power if start - timedelta(minutes=45) <= t <= start]
+                    for t, p in reversed(before):              # rückwärts bis zum Leistungssprung
+                        if p < level:
+                            break
+                        start = t
+                    after = [(t, p) for t, p in power if temps[lo][0] < t <= end + timedelta(minutes=20)]
+                    drop = next((t for t, p in after if p < level), None)
+                    if drop is not None:
+                        end = drop
+            periods.append((start, end))
+            i = peak
+        else:
+            i += 1
+    return periods
+
+
+def wp_energy(power: list[tuple[datetime, float]], temps: list[tuple[datetime, float]],
+              start: datetime, end: datetime) -> dict:
+    """kWh Heizung/Warmwasser im Zeitraum [start, end) aus Leistungspunkten (W) und Warmwassertemperaturen."""
+    periods = dhw_periods(temps, power)
+    heiz = ww = covered = 0.0
+    for (t0, p0), (t1, p1) in zip(power, power[1:]):
+        if (t1 - t0).total_seconds() > WP_LUECKE_S:
+            continue
+        a, b = max(t0, start), min(t1, end)
+        dt = (b - a).total_seconds()
+        if dt <= 0:
+            continue
+        kwh = (p0 + p1) / 2 * dt / 3_600_000
+        mid = a + (b - a) / 2
+        if any(pa <= mid <= pb for pa, pb in periods):
+            ww += kwh
+        else:
+            heiz += kwh
+        covered += dt
+    return {"heizung": round(heiz, 3), "warmwasser": round(ww, 3), "gesamt": round(heiz + ww, 3),
+            "abdeckung_h": round(covered / 3600, 2), "ladungen": sum(1 for a, b in periods if start <= a < end)}
