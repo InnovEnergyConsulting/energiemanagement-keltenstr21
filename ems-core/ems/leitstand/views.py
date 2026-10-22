@@ -91,7 +91,12 @@ def fb_view(now: datetime, latest: list[dict], states: dict, ventil_mittel: dict
     floor_order = lambda f: (0 if f.lower().startswith("erd") else 1 if f.lower().startswith("ober") else 2, f)
     rows.sort(key=lambda x: (floor_order(x["floor"]), not x["sensor"], x["name"] or ""))
 
-    measured = [x for x in rows if x["abweichung"] is not None and x["stufe"] != STOERUNG]
+    # Räume ohne Ventil-Ausgang (z. B. Gästetoilette, Eingang: keine Fußbodenheizung) werden nur gemessen, nicht
+    # geregelt -> zählen nicht zu Sollbereich/Abweichung. Ohne outs-Daten (z. B. kurz nach Start) zählen alle.
+    geregelt = any(x["ventil_vorhanden"] for x in rows)
+    for x in rows:
+        x["nur_messung"] = geregelt and not x["ventil_vorhanden"]
+    measured = [x for x in rows if x["abweichung"] is not None and x["stufe"] != STOERUNG and not x["nur_messung"]]
     im_soll = sum(1 for x in measured if abs(x["abweichung"]) <= IM_SOLL_K)
     groesste = max(measured, key=lambda x: abs(x["abweichung"])) if measured else None
 
@@ -113,6 +118,7 @@ def fb_view(now: datetime, latest: list[dict], states: dict, ventil_mittel: dict
     return {
         "kennzahlen": {
             "im_soll": im_soll, "mit_fuehler": len(measured), "raeume": len(rows),
+            "nur_messung": sum(1 for x in rows if x["nur_messung"] and x["sensor"]),
             "groesste_abweichung": None if groesste is None else
                 {"raum": groesste["name"], "wert": groesste["abweichung"], "ist": groesste["ist"], "soll": groesste["soll"]},
             "ruecklauf_mittel": round(sum(fresh) / len(fresh), 1) if fresh else None,

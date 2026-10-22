@@ -210,3 +210,13 @@ def test_fb_ventil_column():
     by = {r["asset_id"]: r for r in fb["raeume"]}
     assert by["r1"]["ventil"] == 100.0 and by["r1"]["ventil_60min"] == 37 and by["r1"]["ventil_vorhanden"]
     assert by["r2"]["ventil"] is None and not by["r2"]["ventil_vorhanden"]       # kein Ausgang -> nicht 0
+
+
+def test_rooms_without_valve_are_measurement_only():
+    latest = LATEST + [rec(1, 0.0, source="controme", medium="room_climate", asset_id="r1", name="Küche",
+                           floor="Erdgeschoss", quantity="valve_position", role="valve_position")]
+    fb = views.fb_view(NOW, latest, STATES, {"r1": 0.0})
+    by = {r["asset_id"]: r for r in fb["raeume"]}
+    assert by["r2"]["nur_messung"] and not by["r1"]["nur_messung"]          # Flur ohne Ventil = nur Messung
+    k = fb["kennzahlen"]
+    assert k["mit_fuehler"] == 1 and k["groesste_abweichung"]["raum"] == "Küche" and k["nur_messung"] == 1

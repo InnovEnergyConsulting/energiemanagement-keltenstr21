@@ -204,7 +204,7 @@
   function renderFb(fb) {
     var k = fb.kennzahlen, g = k.groesste_abweichung;
     var h = kpi("", "Räume im Sollbereich (±0,5 K)", k.im_soll + " <small>von " + k.mit_fuehler + "</small>",
-      (k.raeume - k.mit_fuehler) + " Räume ohne eigenen Raumfühler");
+      "geregelte Räume mit Fühler" + (k.nur_messung ? "; " + k.nur_messung + " nur gemessen (ohne FB)" : ""));
     h += g ? kpi("", "Größte Abweichung", signed(g.wert) + " <small>K</small>", g.raum + " " + num(g.ist) + " / " + num(g.soll) + " °C")
       : kpi("unbekannt", "Größte Abweichung", "–", "keine aktuellen Fühlerwerte");
     h += k.ruecklauf_mittel != null
@@ -225,7 +225,9 @@
     fb.raeume.forEach(function (r) {
       if (r.floor !== floor) { floor = r.floor; rows.push('<tr class="floor"><td colspan="10">' + esc(floor) + "</td></tr>"); }
       var bar = "–";
-      if (r.abweichung != null) {
+      if (r.abweichung != null && r.nur_messung) {
+        bar = '<span class="dim num" title="nicht geregelt (keine Fußbodenheizung)">' + signed(r.abweichung) + "</span>";
+      } else if (r.abweichung != null) {
         var w = Math.min(50, Math.abs(r.abweichung) / maxDev * 50);
         bar = '<span class="devbar"><i style="' + (r.abweichung < 0 ? "right:50%" : "left:50%") + ";width:" + w + '%"></i></span> <span class="dim num">' + signed(r.abweichung) + "</span>";
       }
@@ -248,7 +250,7 @@
     if ($("raum-dlg").open) renderRaumKpis();
   }
   function ventilZelle(r) {
-    if (!r.ventil_vorhanden) return '<span class="dim">kein Ventil</span>';
+    if (!r.ventil_vorhanden) return '<span class="dim" title="kein Ventil-Ausgang in Controme – Raum wird nur gemessen">' + (r.sensor ? "nur Messung" : "kein Ventil") + "</span>";
     var p = r.ventil_60min != null ? r.ventil_60min : r.ventil;
     var jetzt = r.ventil == null ? "?" : r.ventil >= 100 ? "auf" : r.ventil <= 0 ? "zu" : num(r.ventil, 0) + " %";
     return '<span class="devbar pct" title="Öffnungsanteil 60 min"><i style="left:0;width:' + (p == null ? 0 : Math.min(100, p)) + '%"></i></span> <span class="num">' +
