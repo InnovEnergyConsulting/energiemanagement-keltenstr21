@@ -117,6 +117,12 @@ sind im Leitstand änderbar; gespeichert in `data/leitstand/meldungen.sqlite` (m
 Eine erledigte Meldung, die erneut auftritt, steht automatisch wieder auf „offen“. Das ist der einzige schreibende
 Pfad des Leitstands (nur JSON von der eigenen Herkunft, kein Gerätezugriff).
 
+**Kosten und Preise** (seit 22.10.2026, Konzept `docs/Kosten_Tarife_Konzept.md`): Preise im Reiter „Einstellungen“
+pflegen (neuer Preis = neue Version ab Datum; Tippfehler = „Korrigieren“). Kosten entstehen beim Eintreffen mit dem Preis
+zum Messzeitpunkt. Erscheint dort „Neuberechnung nötig“, den Zeitraum neu berechnen:
+`docker run --rm --network ems_backend -e EMS_INFLUX_URL=http://influxdb:8086 -e EMS_SECRETS_DIR=/run/ems-secrets -v $PWD/secrets/influx-tokens/kosten_token:/run/ems-secrets/influx-tokens/kosten_token:ro -v $PWD/data/tarife:/var/lib/ems-tarife:ro ems-core:local kosten-rechnung <zählpunkt> <von> <bis>`
+(erst mit `--trocken` prüfen).
+
 Shelly-Geräte stehen in `inventory/shelly.yaml` (mDNS-Fund 20.10.2026). Dort `zweck` und `stromkreis` ergänzen,
 dann erscheinen sie im Reiter. Grenzwerte: `ems-core/ems/leitstand/views.py`. Nach Code-Änderungen:
 `docker compose build controme-adapter && docker compose up -d --no-deps --force-recreate controme-adapter normalizer writer leitstand`.

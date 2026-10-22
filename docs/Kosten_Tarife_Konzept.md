@@ -1,6 +1,17 @@
 # Kosten und Tarife – Konzept (Erweiterung des EMS)
 
-Stand: 22.10.2026 · Status: **Konzept, noch nicht umgesetzt**
+Stand: 22.10.2026 · Status: **Schritte 1–4 umgesetzt** (Einstellungen, Kostenrechner, Anzeige, Nachberechnung ab 20./21.10.)
+
+**Umsetzung 22.10.2026 – wo was liegt:**
+- Preisablage `data/tarife/tarife.sqlite` (Code `ems-core/ems/kosten/tarife.py`), Reiter „Einstellungen“ im Leitstand, ohne Anmeldung.
+- Kostenrechner im Normalizer (`ems/kosten/rechner.py`) → `ems/v1/kosten/<zählpunkt>` → InfluxDB `kosten` (ems_detail),
+  Stundensummen per Task `ems_kosten_hourly` nach `ems_agg` (Preis als Tag erhalten). Letzter Stand retained unter
+  `ems/v1/kostenstand/<zählpunkt>` (Neustart ohne Mengenverlust).
+- Nachberechnung: `python -m ems kosten-rechnung <haushalt|waermepumpe|einspeisung> <von> <bis> [--trocken]`
+  (Token `secrets/influx-tokens/kosten_token`); schreibt die nächste Berechnungsversion, nie überschreibend.
+- Grundpreis wird aus der Preishistorie zeitanteilig berechnet (unabhängig von Messwerten).
+- **Hinweis:** Bis zum eigenen WP-Zähler misst der Hauptzähler auch die WP → WP-Kosten sind in den Haushaltskosten
+  enthalten (in der Oberfläche gekennzeichnet, nicht addieren).
 
 ## 1. Ziel
 
