@@ -58,7 +58,12 @@
     <div>
       <div class="lvl">Energie <span>– aus der EEBUS-Leistung berechnet (der VR 940 liefert keine Zählerstände); Abgleich mit myVAILLANT bis 21.10.: ±3 %</span></div>
       <div class="kpis" id="wp-energie"></div>
-      <div class="card mt"><h3>Verbrauch je Tag <small>letzte 30 Tage, gestapelt</small></h3><div class="chart" id="wp-chart-tage"></div><div class="legend" id="wp-legend-tage"></div></div>
+      <div class="grid2 mt">
+        <div class="card"><h3>Verbrauch je Tag <small>letzte 30 Tage, gestapelt</small></h3><div class="chart" id="wp-chart-tage"></div><div class="legend" id="wp-legend-tage"></div></div>
+        <div class="card"><h3>Tageswerte <small>kWh, neueste zuerst</small></h3><div class="scroll"><table>
+          <thead><tr><th>Tag</th><th class="n">Heizung</th><th class="n">Warmwasser</th><th class="n">Gesamt</th><th class="n">Ladungen</th><th class="n">Daten</th></tr></thead>
+          <tbody id="wp-tage-tab"></tbody></table></div></div>
+      </div>
     </div>
     <div>
       <div class="lvl">Verlauf <div class="tools" data-range="wp"></div></div>

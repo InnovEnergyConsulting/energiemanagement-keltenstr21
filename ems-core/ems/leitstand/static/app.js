@@ -124,7 +124,7 @@
     var out = ['<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(opt.label || "Verlauf") + '">'];
     for (var v = y0; v <= y1 + step / 2; v += step) {
       out.push('<line x1="' + L + '" x2="' + (W - R) + '" y1="' + sy(v) + '" y2="' + sy(v) + '" stroke="' + css("--line") + '"/>');
-      out.push('<text x="' + (L - 6) + '" y="' + (sy(v) + 3) + '" text-anchor="end">' + num(v, step < 1 ? 1 : 0) + "</text>");
+      out.push('<text x="' + (L - 6) + '" y="' + (sy(v) + 3) + '" text-anchor="end">' + num(v, step % 1 ? 1 : 0) + "</text>");
     }
     timeTicks(x0, x1).forEach(function (tk) {
       out.push('<line x1="' + sx(tk[0]) + '" x2="' + sx(tk[0]) + '" y1="' + T + '" y2="' + (H - B) + '" stroke="' + css("--line") + '" stroke-dasharray="2 4"/>');
@@ -392,14 +392,19 @@
     $("wp-energie").innerHTML = k("Verbrauch heute", e.heute) + k("Verbrauch dieser Monat", e.monat, e.monat.moeglich_h < 24 * 28 ? seit : "") + k("Verbrauch dieses Jahr", e.jahr, seit);
     var tage = e.tage, el = $("wp-chart-tage");
     if (!tage.length) { el.innerHTML = '<div class="empty">Noch keine Tageswerte</div>'; return; }
-    var W = 640, H = 200, L = 44, R = 10, T = 12, B = 24, n = Math.max(7, tage.length);
+    $("wp-tage-tab").innerHTML = tage.slice().reverse().slice(0, 10).map(function (t, i) {
+      var lueck = t.abdeckung_pct != null && t.abdeckung_pct < 95;
+      return "<tr><td>" + (i === 0 ? "heute" : esc(fmtDate.format(new Date(t.datum + "T12:00:00")))) + '</td><td class="n">' + num(t.heizung, 1) + '</td><td class="n">' + num(t.warmwasser, 1) +
+        '</td><td class="n">' + num(t.gesamt, 1) + '</td><td class="n">' + t.ladungen + '</td><td class="n">' + (t.abdeckung_pct == null ? "–" : lueck ? '<span class="tag hinweis">' + t.abdeckung_pct + " %</span>" : '<span class="dim">' + t.abdeckung_pct + " %</span>") + "</td></tr>";
+    }).join("");
+    var W = 640, H = 230, L = 44, R = 10, T = 12, B = 24, n = Math.max(7, tage.length);
     var ymax = Math.max(1, Math.max.apply(null, tage.map(function (t) { return t.gesamt; })));
     var step = niceStep(ymax, 4); ymax = Math.ceil(ymax / step) * step;
     var bw = (W - L - R) / n, sy = function (v) { return T + (ymax - v) / ymax * (H - T - B); };
     var out = ['<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="WP-Verbrauch je Tag">'];
     for (var v = 0; v <= ymax + step / 2; v += step) {
       out.push('<line x1="' + L + '" x2="' + (W - R) + '" y1="' + sy(v) + '" y2="' + sy(v) + '" stroke="' + css("--line") + '"/>');
-      out.push('<text x="' + (L - 6) + '" y="' + (sy(v) + 3) + '" text-anchor="end">' + num(v, step < 1 ? 1 : 0) + "</text>");
+      out.push('<text x="' + (L - 6) + '" y="' + (sy(v) + 3) + '" text-anchor="end">' + num(v, step % 1 ? 1 : 0) + "</text>");
     }
     tage.forEach(function (t, i) {
       var x = L + (n - tage.length + i) * bw + 2, w = Math.max(2, bw - 4), d = new Date(t.datum + "T12:00:00");
@@ -494,7 +499,7 @@
     var out = ['<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(opt.label) + '">'];
     for (var v = 0; v <= ymax + step / 2; v += step) {
       out.push('<line x1="' + L + '" x2="' + (W - R) + '" y1="' + sy(v) + '" y2="' + sy(v) + '" stroke="' + css("--line") + '"/>');
-      out.push('<text x="' + (L - 6) + '" y="' + (sy(v) + 3) + '" text-anchor="end">' + num(v, step < 1 ? 1 : 0) + "</text>");
+      out.push('<text x="' + (L - 6) + '" y="' + (sy(v) + 3) + '" text-anchor="end">' + num(v, step % 1 ? 1 : 0) + "</text>");
     }
     timeTicks(x0, x1).forEach(function (tk) { out.push('<text x="' + sx(tk[0]) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(tk[1]) + "</text>"); });
     bars.forEach(function (b) {

@@ -110,3 +110,28 @@ Gerät (Entität 3, deviceClassificationManufacturerData): **aroTHERM plus VWL 7
 - Setpoints 0 und 2 (Warmwasser, beide Zonen): nur Platzhalter ohne Typ/Wert; Setpoint 2 gehört zur Betriebsart „off“ (Relation).
 - Entität 1 (CEM-Seite des VR 940): Kennwert `contractualConsumptionNominalMax` (W) ohne Wert.
 - 3.1 `smartEnergyManagementPsData` (OHPCF-Leistungsprofil): wird vom Adapter bewusst nicht gelesen (Steuer-Anwendungsfall).
+
+---
+
+## 5. WP-Energie aus der EEBUS-Leistung (umgesetzt 22.10.2026)
+
+Der VR 940 liefert über EEBUS **keine Energiezähler** – auch nicht nach Aktivieren des „EEBUS-Energiemanagers“ in
+myVAILLANT (22.10., geprüft inkl. Neuverbindung). Die App-Werte kommen über eBUS → Vaillant-Cloud.
+
+**Berechnung im Leitstand** (`ems-core/ems/leitstand/views.py`: `wp_energy`, `dhw_periods`):
+- Energie = Trapez-Integral von `acPowerTotal` (Entität 3); Lücken > 15 min werden nicht überbrückt (Abdeckung in % angezeigt).
+- Warmwasserladung = Anstieg der Warmwassertemperatur ≥ 2 K. Die **Grenzen kommen aus der Leistung**: Beginn = Sprung auf
+  ≥ 50 % der Ladeleistung vor dem Anstieg, Ende = Abfall darunter. Grund: Der Fühler reagiert 5–15 min verzögert
+  (21.10.: Leistung springt 11:28, Temperatur steigt ab 11:38).
+- Abgeschlossene Tage werden einmal berechnet und im Speicher gehalten.
+
+**Abgleich mit myVAILLANT** (Ansicht „Jahr“; die App enthält den laufenden Tag nicht):
+
+| bis 21.10.2026 24:00 | App | Berechnung | Abweichung |
+|---|---|---|---|
+| Heizung | 6,2 kWh | 6,09 kWh | −2 % |
+| Warmwasser | 8,2 kWh | 8,68 kWh | +6 % |
+| Summe | 14,3 kWh | 14,77 kWh | +3 % |
+
+Eine erste Fassung (Ladung nur aus dem Temperaturanstieg) ergab 6,27 / 8,49 kWh; sie rechnete aber flache Phasen
+vor einer Ladung mit, was der Unit-Test aufdeckte. Maßgeblich wird später der eigene WP-Zähler.

@@ -2,7 +2,7 @@
 # Grundlage: Discovery und Aufzeichnung vom 20.10.2026 (docs/EEBUS_Datenanalyse.md).
 # STAND: vorläufig (Stufe C parallel zu Stufe B) – nach 1–2 Wochen Betriebsdaten überprüfen.
 profile: eebus_vr940
-mapping_version: 2
+mapping_version: 3
 source: eebus
 stream: spine
 point_prefix: haus.vaillant
@@ -17,6 +17,10 @@ entities:
   "4":     {asset_id: vaillant_warmwasser,    name: "Warmwasser",              circuit_id: unassigned}
   "5.1.1": {asset_id: vaillant_zone_1,        name: "Heizzone 1 (VRC 720)",    circuit_id: unassigned}
   "6":     {asset_id: vaillant_aussenfuehler, name: "Außentemperatur Vaillant", circuit_id: unassigned}
+
+# Entitäten, die bewusst NICHT übernommen werden (keine Messwerte, keine Meldungen; Rohdaten bleiben in ems_raw):
+# Zone 2 (Heizkreis 7) – laut Nutzer irrelevant (22.10.2026), Raumfühler dort meldet "error".
+ignore_entities: ["7", "7.1", "7.1.1"]
 
 # measurementDescription.scopeType -> Messgröße. per_phase: Phase aus electricalConnectionParameterDescription
 # (acMeasuredPhases) wird an die Messgröße gehängt, z. B. active_power_a.

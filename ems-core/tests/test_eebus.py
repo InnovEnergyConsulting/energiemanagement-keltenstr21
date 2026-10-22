@@ -86,3 +86,12 @@ def test_normalizer_integration_publishes_telemetry():
     assert "ems/v1/state/vaillant_zone_1" in topics
     n.handle("ems/v1/raw/eebus/mdt", b'{"x":1}')            # Rohdaten-Strom: still ignoriert
     assert not any(m.get("kind") == "no_mapping" for _, m in sent)
+
+
+def test_ignored_entity_yields_nothing():
+    from ems.normalizer import eebus as eb
+    m = dict(MAP, ignore_entities=["7.1.1"])
+    raw = {"received_at": "2026-10-22T06:00:00.000Z", "payload": {"data": [{"payload": {"datagram": [
+        {"header": [{"addressSource": [{"entity": [7, 1, 1]}]}, {"cmdClassifier": "notify"}]},
+        {"payload": [{"cmd": [[{"measurementListData": [{"measurementData": [[{"measurementId": 0}, {"value": [{"number": 0}]}, {"valueState": "error"}]]}]}]]}]}]}}]}}
+    assert eb.normalize(raw, m, eb.EebusState()) == ([], [], [])

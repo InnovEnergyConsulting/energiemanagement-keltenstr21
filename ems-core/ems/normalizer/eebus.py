@@ -96,6 +96,8 @@ def normalize(raw: dict, mapping: dict, st: EebusState) -> tuple[list[dict], lis
     entity, cls, cmds = datagram(raw["payload"])
     if cls not in ("reply", "notify"):
         return [], [], []
+    if entity in mapping.get("ignore_entities", []):
+        return [], [], []                       # bewusst ausgeblendet (z. B. Zone 2), nur Rohdaten
     ver = mapping["mapping_version"]
     ent = mapping["entities"].get(entity)
     telemetry, states, quality = [], [], []
