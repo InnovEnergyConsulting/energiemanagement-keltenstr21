@@ -1,0 +1,17 @@
+# Mapping Controme /get/json/v1/<haus>/outs/  (Ventil-Ausgänge je Raum)  ->  ems/v1/telemetry
+# Antwort (22.10.2026): je Etage "raeume": [{"id", "name", "ausgang": {"<nr>": 0|1, ...}}]; Schlüssel teils mit
+# führendem Leerzeichen (" 3"). Thermische Stellantriebe: 0 = zu, 1 = auf (Controme regelt über Einschaltdauer).
+# Ventilstellung je Raum = Mittel aller Ausgänge in %, 0/1 -> 0/100 %; Werte > 1 gelten bereits als Prozent.
+# Räume ohne Ausgang (Gästetoilette, Eingang, alle OG-Räume) erhalten keinen Wert (nicht 0!).
+profile: controme_outs
+mapping_version: 1
+source: controme
+stream: outs
+asset_prefix: controme_raum_          # gleiche Raum-Assets wie temps/
+point_prefix: haus.heizung
+quantity: valve_position
+role: valve_position
+medium: room_climate
+unit: percent
+measurement_kind: device_reported
+known_keys: [id, name, ausgang]

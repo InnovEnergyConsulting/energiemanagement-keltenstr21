@@ -80,6 +80,8 @@ class Normalizer:
         try:
             if source == "controme" and stream == "temps":
                 telemetry, states, quality = controme.normalize(raw, self.mappings["controme_temps"])
+            elif source == "controme" and stream == "outs":
+                telemetry, states, quality = controme.normalize_outs(raw, self.mappings["controme_outs"])
             elif source == "controme" and stream == "vtr":
                 telemetry, states, quality = controme.normalize_vtr(raw, self.mappings["controme_vtr"])
             elif source == "eebus" and stream == "spine":

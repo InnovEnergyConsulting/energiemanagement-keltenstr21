@@ -52,8 +52,12 @@ def _val(rec):
 
 
 # --------------------------------------------------------------------------------- Reiter 1: Fußbodenheizung
-def fb_view(now: datetime, latest: list[dict], states: dict) -> dict:
-    """latest: letzte Telemetrie je Messpunkt; states: {asset_id: {feld: wert}}."""
+VENTIL_VERALTET_S = 10 * 60          # Ausgänge werden jede Minute abgefragt
+
+
+def fb_view(now: datetime, latest: list[dict], states: dict, ventil_mittel: dict | None = None) -> dict:
+    """latest: letzte Telemetrie je Messpunkt; states: {asset_id: {feld: wert}};
+    ventil_mittel: Öffnungsanteil je Raum der letzten 60 min in % (thermische Stellantriebe: Anteil der Zeit offen)."""
     rooms = {}
     for r in latest:
         if r.get("source") != "controme" or r.get("medium") != "room_climate":
@@ -63,6 +67,8 @@ def fb_view(now: datetime, latest: list[dict], states: dict) -> dict:
         room[r["quantity"]] = r["value"]
         if r["quantity"] == "temperature":
             room["temp_time"] = r["time"]
+        if r["quantity"] == "valve_position":
+            room["valve_time"] = r["time"]
 
     rows = []
     for room in rooms.values():
@@ -77,6 +83,9 @@ def fb_view(now: datetime, latest: list[dict], states: dict) -> dict:
             "szene": st.get("scene"), "naechste_szene": st.get("next_scene"), "wechsel_um": st.get("next_change_at"),
             "betriebsart": MODE_DE.get(st.get("mode"), st.get("mode")),
             "sensor": ist is not None, "alter_s": age,
+            "ventil": room.get("valve_position") if room.get("valve_time") and age_s(now, room["valve_time"]) <= VENTIL_VERALTET_S else None,
+            "ventil_60min": None if (ventil_mittel or {}).get(room["asset_id"]) is None else round(ventil_mittel[room["asset_id"]]),
+            "ventil_vorhanden": "valve_time" in room,
             "stufe": by_age(age, ROOM_SENSOR_HINWEIS_S, ROOM_SENSOR_STOERUNG_S) if ist is not None else OK,
         })
     floor_order = lambda f: (0 if f.lower().startswith("erd") else 1 if f.lower().startswith("ober") else 2, f)

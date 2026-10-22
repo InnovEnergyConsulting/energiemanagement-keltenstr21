@@ -32,7 +32,7 @@
     <div>
       <div class="lvl">Räume <span>– Zeile anklicken öffnet das Detailfenster des Raums. Farbe nur, wenn ein Fühler über 6 h schweigt.</span></div>
       <div class="scroll"><table>
-        <thead><tr><th>Raum</th><th class="n">Ist °C</th><th class="n">Soll °C</th><th>Abweichung</th><th class="n">Offset K</th><th class="n">Feuchte</th><th>Szene</th><th>nächster Wechsel</th><th class="n">Fühler</th></tr></thead>
+        <thead><tr><th>Raum</th><th class="n">Ist °C</th><th class="n">Soll °C</th><th>Abweichung</th><th class="n">Offset K</th><th class="n">Feuchte</th><th title="Öffnungsanteil der letzten 60 min (thermische Stellantriebe: Anteil der Zeit offen); darunter aktueller Zustand">Ventil</th><th>Szene</th><th>nächster Wechsel</th><th class="n">Fühler</th></tr></thead>
         <tbody id="fb-rooms"></tbody>
       </table></div>
     </div>
@@ -126,6 +126,7 @@
       <div class="grid2">
         <div class="card"><h3>Rücklauf der zugeordneten Heizkreise</h3><div class="chart" id="raum-chart-return"></div><div class="legend" id="raum-legend-return"></div></div>
         <div class="card"><h3>Luftfeuchte</h3><div class="chart" id="raum-chart-hum"></div><div class="legend" id="raum-legend-hum"></div></div>
+        <div class="card"><h3>Ventilöffnung <small>0 % = zu, 100 % = offen; mehrere Ventile gemittelt</small></h3><div class="chart" id="raum-chart-ventil"></div><div class="legend" id="raum-legend-ventil"></div></div>
       </div>
     </div>
   </dialog>

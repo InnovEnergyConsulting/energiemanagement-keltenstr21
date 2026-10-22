@@ -39,7 +39,7 @@ def raum_filter(asset_id: str) -> str:
     if not _ASSET_RE.match(asset_id or ""):
         raise ValueError("ungültige Raum-ID")
     return (f'(r.asset_id == "{asset_id}" and (r.quantity == "temperature" or r.quantity == "temperature_setpoint" '
-            f'or r.quantity == "relative_humidity")) or (r.room_asset_id == "{asset_id}" and r.role == "return_flow")')
+            f'or r.quantity == "relative_humidity" or r.quantity == "valve_position")) or (r.room_asset_id == "{asset_id}" and r.role == "return_flow")')
 
 
 def _t(dt: datetime) -> str:
@@ -151,6 +151,13 @@ class Influx:
             return {"zeit": r.get_time().isoformat(), "signal_dbm": wifi.get("Signal"), "uptime": p.get("Uptime"),
                     "ssid": wifi.get("SSId")}
         return None
+
+    def ventil_mittel(self, minuten: int = 60) -> dict[str, float]:
+        """Öffnungsanteil je Raum über die letzten `minuten` (Mittel der minütlichen Ventilstellung in %)."""
+        flux = f'''from(bucket: "ems_detail") |> range(start: -{minuten}m)
+  |> filter(fn: (r) => r._measurement == "telemetry" and r._field == "value" and r.quantity == "valve_position")
+  |> group(columns: ["asset_id"]) |> mean()'''
+        return {r.values["asset_id"]: r.get_value() for r in self._records(flux)}
 
     def ausfaelle(self, since: str = "-7d") -> list[dict]:
         """Verbindungsabbrüche der Adapter (availability mit Status offline)."""

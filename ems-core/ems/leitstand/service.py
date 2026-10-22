@@ -140,7 +140,7 @@ class Leitstand:
         ix = self.influx
         latest, states, avail = ix.latest_telemetry(), ix.states(), ix.availability()
         shelly = load_shelly(self.shelly_path)
-        fb = views.fb_view(now, latest, states)
+        fb = views.fb_view(now, latest, states, ix.ventil_mittel(60))
         wp = views.wp_view(now, latest, states, avail, ix.quality("-7d"))
         wp["energie_berechnet"] = self.wp_energie(now)
         raw_last = ix.raw_last()

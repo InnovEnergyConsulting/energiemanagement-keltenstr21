@@ -44,6 +44,9 @@ public class MainActivity extends Activity {
     private EditText pinFeld;
     private TextView pinAnzeige;
     private TextView lampe, status;
+    private LinearLayout fragePanel, frageKnoepfe;
+    private TextView frageText;
+    private final java.util.concurrent.BlockingQueue<String> antworten = new java.util.concurrent.LinkedBlockingQueue<>();
     private volatile boolean laeuft;
     private volatile boolean dauerLicht;
     private Thread worker;
@@ -103,6 +106,21 @@ public class MainActivity extends Activity {
         status.setText("Bereit.");
         root.addView(status);
 
+        fragePanel = new LinearLayout(this);
+        fragePanel.setOrientation(LinearLayout.VERTICAL);
+        fragePanel.setBackgroundColor(Color.rgb(219, 229, 239));
+        fragePanel.setPadding((int) (12 * dp), (int) (12 * dp), (int) (12 * dp), (int) (12 * dp));
+        frageText = new TextView(this);
+        frageText.setTextSize(18);
+        frageText.setTypeface(Typeface.DEFAULT_BOLD);
+        frageText.setTextColor(Color.rgb(29, 35, 41));
+        fragePanel.addView(frageText);
+        frageKnoepfe = new LinearLayout(this);
+        frageKnoepfe.setOrientation(LinearLayout.VERTICAL);
+        fragePanel.addView(frageKnoepfe);
+        fragePanel.setVisibility(View.GONE);
+        root.addView(fragePanel);
+
         root.addView(label("PIN (Ziffern, meist 4 Stellen)", dp));
         pinFeld = new EditText(this);
         pinFeld.setInputType(InputType.TYPE_CLASS_NUMBER);          // sichtbar: Abgleich mit dem PIN-Brief
@@ -121,7 +139,15 @@ public class MainActivity extends Activity {
             public void afterTextChanged(android.text.Editable e) { zeigePin(); }
         });
 
-        root.addView(knopf("PIN eingeben (automatisch)", v -> starte("pin"), dp));
+        Button gefuehrt = knopf("Geführt: PIN → „InF on“ → „Pin OFF“", v -> starte("gefuehrt"), dp);
+        gefuehrt.setTypeface(Typeface.DEFAULT_BOLD);
+        root.addView(gefuehrt);
+        TextView gefText = new TextView(this);
+        gefText.setText("Gibt die PIN ein und blättert ins Menü. Vor jedem langen Impuls hält die App an und fragt, was das "
+                + "Display zeigt – lang wird nur nach deiner Bestätigung geleuchtet.");
+        gefText.setTextSize(12);
+        root.addView(gefText);
+        root.addView(knopf("Nur PIN eingeben", v -> starte("pin"), dp));
         TextView ablauf = new TextView(this);
         ablauf.setText("Ablauf: Weckimpuls → Displaytest → Einstiegsimpuls → je Ziffer n kurze Impulse (0 = keiner) → "
                 + "Pause → nächste Ziffer. Danach im Display prüfen, ob die PIN angenommen wurde.");
@@ -240,7 +266,7 @@ public class MainActivity extends Activity {
         String fehler = pruefeUndSpeichere();
         if (fehler != null) { zeigeStatus(fehler); return; }
         String pin = pinFeld.getText().toString().trim();
-        if (was.equals("pin") && !pin.matches("\\d{1,8}")) { zeigeStatus("Bitte PIN aus Ziffern eingeben."); return; }
+        if ((was.equals("pin") || was.equals("gefuehrt")) && !pin.matches("\\d{1,8}")) { zeigeStatus("Bitte PIN aus Ziffern eingeben."); return; }
         dauerLicht = false;
         laeuft = true;
         worker = new Thread(() -> {
@@ -248,6 +274,7 @@ public class MainActivity extends Activity {
                 countdown(wert("start"));
                 switch (was) {
                     case "pin": pinEingeben(pin); break;
+                    case "gefuehrt": gefuehrt(pin); break;
                     case "kurz1": kurzeImpulse(1); zeigeStatus("1 × kurz gesendet – Display prüfen."); break;
                     case "kurzN": kurzeImpulse((int) wert("nKurz")); zeigeStatus(wert("nKurz") + " × kurz gesendet – Display prüfen."); break;
                     case "lang1":
@@ -284,6 +311,85 @@ public class MainActivity extends Activity {
                     + ") – warten");
         }
         zeigeStatus("PIN gesendet. Display prüfen: angenommen? Dann „N × kurz“ bis „InF“.");
+    }
+
+    /**
+     * PIN eingeben, dann InF auf "on" und Pin auf "OFF". Lange Impulse nur nach Bestätigung des Displays;
+     * bei unerwarteter Anzeige wird mit einem kurzen Impuls weitergeblättert (nie lang bei E Clr / HIS Clr).
+     */
+    private void gefuehrt(String pin) throws Abbruch {
+        pinEingeben(pin);
+        String a = frage("PIN gesendet. Wurde sie angenommen?\n(Display zeigt keine PIN-Abfrage mehr, sondern Werte/Menü)",
+                "Ja, weiter", "Nein – abbrechen");
+        if (!a.startsWith("Ja")) { zeigeStatus("Abgebrochen. Zeiten prüfen und PIN erneut senden."); return; }
+
+        zeigeStatus("Blättere zu „InF“ (" + wert("nKurz") + " × kurz) …");
+        kurzeImpulse((int) wert("nKurz"));
+        if (!menuepunkt("InF", "OFF", "on")) return;
+
+        zeigeStatus("Weiter zu „Pin“ (1 × kurz) …");
+        kurzeImpulse(1);
+        if (!menuepunkt("Pin", "on", "OFF")) return;
+
+        zeigeStatus("1 × kurz zum Weiterblättern …");
+        kurzeImpulse(1);
+        zeigeStatus("Fertig: „InF on“ und „Pin OFF“. Display zeigt jetzt die Momentanleistung.");
+        frage("Fertig! Der Zähler liefert jetzt den erweiterten Datensatz. Bitte im EMS prüfen lassen.", "OK");
+    }
+
+    /** Fragt, was angezeigt wird, und schaltet `punkt` von `von` auf `nach` – nur mit langem Impuls nach Bestätigung. */
+    private boolean menuepunkt(String punkt, String von, String nach) throws Abbruch {
+        String sollVon = "„" + punkt + " " + von + "“", sollNach = "„" + punkt + " " + nach + "“";
+        for (int versuch = 0; versuch < 30; versuch++) {
+            String a = frage("Was zeigt das Display jetzt?",
+                    sollVon + " → lang umschalten",
+                    sollNach + " (schon richtig) → weiter",
+                    "Etwas anderes → 1 × kurz weiterblättern",
+                    "Abbrechen");
+            if (a.startsWith("Abbrechen")) { zeigeStatus("Abgebrochen."); return false; }
+            if (a.contains("schon richtig")) return true;
+            if (a.startsWith("Etwas")) {
+                zeigeStatus("1 × kurz (weiterblättern, niemals lang bei „E Clr“/„HIS Clr“) …");
+                kurzeImpulse(1);
+                continue;
+            }
+            zeigeStatus("Langer Impuls: " + sollVon + " → " + sollNach + " …");
+            impuls(wert("lang"));
+            String b = frage("Zeigt das Display jetzt " + sollNach + "?", "Ja, weiter", "Nein – abbrechen");
+            if (b.startsWith("Ja")) return true;
+            zeigeStatus("Abgebrochen bei " + punkt + ". Mit den Einzelknöpfen weitermachen oder neu starten.");
+            return false;
+        }
+        zeigeStatus("Zu oft weitergeblättert – abgebrochen.");
+        return false;
+    }
+
+    /** Zeigt eine Frage mit Antwortknöpfen und wartet (Licht aus) – STOPP bricht ab. */
+    private String frage(String text, String... optionen) throws Abbruch {
+        antworten.clear();
+        runOnUiThread(() -> {
+            frageText.setText(text);
+            frageKnoepfe.removeAllViews();
+            for (String o : optionen) {
+                Button b = new Button(this);
+                b.setText(o);
+                b.setAllCaps(false);
+                b.setOnClickListener(v -> antworten.offer(o));
+                frageKnoepfe.addView(b);
+            }
+            fragePanel.setVisibility(View.VISIBLE);
+        });
+        try {
+            while (true) {
+                if (!laeuft) throw new Abbruch();
+                String a = antworten.poll(200, java.util.concurrent.TimeUnit.MILLISECONDS);
+                if (a != null) return a;
+            }
+        } catch (InterruptedException e) {
+            throw new Abbruch();
+        } finally {
+            runOnUiThread(() -> fragePanel.setVisibility(View.GONE));
+        }
     }
 
     private void kurzeImpulse(int n) throws Abbruch {

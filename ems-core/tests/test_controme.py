@@ -78,3 +78,23 @@ def test_normalizer_deduplicates_and_survives_bad_payload():
     assert any(t.startswith("ems/v1/quality/") and m["kind"] == "schema_error" for t, m in sent)
     n.handle("ems/v1/raw/controme/temps", b"{kein json")
     assert any(m.get("kind") == "invalid_json" for _, m in sent)
+
+
+def test_outs_valve_position_from_real_response():
+    import json as _json
+    from pathlib import Path
+    from ems.normalizer import controme as c
+    payload = _json.loads((Path(__file__).parent / "fixtures/controme/outs_2026-10-22.json").read_text(encoding="utf-8"))
+    mapping = yaml.safe_load((mapping_dir() / "controme_outs.yaml").read_text(encoding="utf-8"))
+    raw = {"received_at": "2026-10-22T09:20:00.000Z", "payload": payload}
+    tel, _, q = c.normalize_outs(raw, mapping)
+    by = {t["asset_id"]: t for t in tel}
+    assert q == []
+    assert set(by) == {"controme_raum_1", "controme_raum_2", "controme_raum_3", "controme_raum_4",
+                       "controme_raum_9", "controme_raum_23"}            # ohne Ausgang (WC, Eingang, OG): kein Wert
+    assert by["controme_raum_23"]["value"] == 0.0 and by["controme_raum_23"]["unit"] == "percent"
+    assert by["controme_raum_1"]["quantity"] == "valve_position" and by["controme_raum_1"]["floor"] == "Erdgeschoss"
+    # Wohnzimmer mit 4 Ausgängen, 2 offen -> 50 %; Schlüssel mit Leerzeichen
+    payload[0]["raeume"][-1]["ausgang"] = {"9": 1, " 3": 0, " 6": 1, " 5": 0}
+    tel, _, _ = c.normalize_outs(raw, mapping)
+    assert {t["asset_id"]: t["value"] for t in tel}["controme_raum_23"] == 50.0

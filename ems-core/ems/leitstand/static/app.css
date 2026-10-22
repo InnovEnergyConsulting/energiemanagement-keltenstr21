@@ -114,6 +114,8 @@ tr.pick:hover td{background:var(--ground)}
 tr.sel td{background:var(--accent-soft)}
 tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 .devbar{display:inline-block;height:6px;width:80px;position:relative;vertical-align:middle;background:linear-gradient(var(--line),var(--line)) center/1px 100% no-repeat}
+.devbar.pct{width:60px;background:var(--line)}
+.devbar.pct i{background:var(--chart-2)}
 .devbar i{position:absolute;top:0;bottom:0;background:var(--ink-3)}
 .tag{font-size:11px;padding:1px 6px;border:1px solid var(--line);border-radius:2px;color:var(--ink-2);font-family:var(--f-data)}
 .tag.hinweis{border-color:var(--warn);background:var(--warn-soft);color:var(--ink)}

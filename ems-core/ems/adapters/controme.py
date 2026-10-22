@@ -4,6 +4,7 @@ Fragt die lokale API des Miniservers ab und veröffentlicht die unveränderte An
 Empfangszeit als Rohdatum. Fachliche Bedeutung ordnet erst der Normalizer zu.
 
   ems/v1/raw/controme/temps   alle EMS_CONTROME_INTERVAL_S Sekunden (Start: 60 s)
+  ems/v1/raw/controme/outs    wie temps (Ventil-Ausgänge je Raum, 0 = zu / 1 = auf)
   ems/v1/raw/controme/vtr     alle 5 min (Vorlauftemperatur je Regelung; 20.10.2026 noch leer)
   ems/v1/raw/controme/info    stündlich (Softwarestand -> Schema-Änderungen erkennen)
   ems/v1/availability/controme  online/offline inkl. Grund (retained)
@@ -35,6 +36,7 @@ def run():
     house = env("EMS_CONTROME_HOUSE_ID", "1")
     interval = int(env("EMS_CONTROME_INTERVAL_S", "60"))
     streams = {"temps": (f"{base}/get/json/v1/{house}/temps/", interval),
+               "outs": (f"{base}/get/json/v1/{house}/outs/", interval),   # Ventil-Ausgänge je Raum
                "vtr": (f"{base}/get/json/v1/{house}/vtr/", 300),     # Vorlauf je Regelung (derzeit leer)
                "info": (f"{base}/get/json/v1/{house}/info/", 3600)}
     bus = Bus("ems-controme-adapter", "controme_adapter", "ems/v1/availability/controme").start()

@@ -223,7 +223,7 @@
       state.raum = fb.raeume.some(function (r) { return r.asset_id === pref; }) ? pref : (withSensor[0] || fb.raeume[0] || {}).asset_id;
     }
     fb.raeume.forEach(function (r) {
-      if (r.floor !== floor) { floor = r.floor; rows.push('<tr class="floor"><td colspan="9">' + esc(floor) + "</td></tr>"); }
+      if (r.floor !== floor) { floor = r.floor; rows.push('<tr class="floor"><td colspan="10">' + esc(floor) + "</td></tr>"); }
       var bar = "–";
       if (r.abweichung != null) {
         var w = Math.min(50, Math.abs(r.abweichung) / maxDev * 50);
@@ -233,6 +233,7 @@
       rows.push('<tr class="pick' + (r.asset_id === state.raum ? " sel" : "") + '" tabindex="0" data-raum="' + esc(r.asset_id) + '" aria-haspopup="dialog" title="Detailfenster öffnen">' +
         "<td>" + esc(r.name) + '</td><td class="n">' + num(r.ist) + '</td><td class="n">' + num(r.soll) + "</td><td>" + bar + "</td>" +
         '<td class="n dim">' + num(r.offset, 2) + '</td><td class="n">' + (r.feuchte != null ? num(r.feuchte, 0) + " %" : '<span class="dim">–</span>') + "</td>" +
+        "<td>" + ventilZelle(r) + "</td>" +
         "<td>" + esc(r.szene || "–") + (r.betriebsart && r.betriebsart !== "Heizen" ? ' <span class="tag">' + esc(r.betriebsart) + "</span>" : "") + "</td>" +
         '<td class="dim">' + (r.wechsel_um ? esc(r.wechsel_um.slice(11)) + " → " + esc(r.naechste_szene || "") + (r.soll_naechste != null ? " (" + num(r.soll_naechste) + " °C)" : "") : "–") + "</td>" +
         '<td class="n">' + age + "</td></tr>");
@@ -245,6 +246,13 @@
     }).join("") || '<tr><td colspan="4" class="dim">keine Rücklauffühler</td></tr>';
     renderFbCharts();
     if ($("raum-dlg").open) renderRaumKpis();
+  }
+  function ventilZelle(r) {
+    if (!r.ventil_vorhanden) return '<span class="dim">kein Ventil</span>';
+    var p = r.ventil_60min != null ? r.ventil_60min : r.ventil;
+    var jetzt = r.ventil == null ? "?" : r.ventil >= 100 ? "auf" : r.ventil <= 0 ? "zu" : num(r.ventil, 0) + " %";
+    return '<span class="devbar pct" title="Öffnungsanteil 60 min"><i style="left:0;width:' + (p == null ? 0 : Math.min(100, p)) + '%"></i></span> <span class="num">' +
+      (p == null ? "–" : num(p, 0) + " %") + '</span> <span class="dim">· ' + jetzt + "</span>";
   }
   function selectRoom(id) {
     state.raum = id; store("ems-raum", id);
@@ -287,7 +295,7 @@
     selectRoom(id);
     state.raumDaten = null;
     renderRaumKpis();
-    ["raum-chart-temp", "raum-chart-return", "raum-chart-hum"].forEach(function (c) { $(c).innerHTML = '<div class="empty">lädt …</div>'; });
+    ["raum-chart-temp", "raum-chart-return", "raum-chart-hum", "raum-chart-ventil"].forEach(function (c) { $(c).innerHTML = '<div class="empty">lädt …</div>'; });
     var dlg = $("raum-dlg");
     if (!dlg.open) { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
     loadRaum();
@@ -330,6 +338,11 @@
       .map(function (s) { return { name: "Feuchte", punkte: s.punkte, vorher: s.vorher, stufig: s.stufig, color: css("--chart-3") }; });
     lineChart($("raum-chart-hum"), hum, chartOpt(v, { unit: "%", digits: 0, minSpan: 10, label: "Luftfeuchte", leer: "Der Fühler dieses Raums misst keine Luftfeuchte" }));
     legend($("raum-legend-hum"), hum);
+    var ven = v.reihen.filter(function (s) { return s.asset_id === state.raum && s.quantity === "valve_position"; })
+      .map(function (s) { return { name: "Ventil", punkte: s.punkte, color: css("--chart-2"), area: true, width: 1.5 }; });
+    lineChart($("raum-chart-ventil"), ven, chartOpt(v, { unit: "%", digits: 0, yMin: 0, minSpan: 100, label: "Ventilöffnung",
+      leer: "Diesem Raum ist in Controme kein Ventil-Ausgang zugeordnet (oder noch keine Daten)" }));
+    legend($("raum-legend-ventil"), ven);
   }
   function loadRaum() {
     var id = state.raum, sp = state.spanne.raum;

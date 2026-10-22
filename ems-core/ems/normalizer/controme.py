@@ -127,3 +127,33 @@ def normalize_vtr(raw: dict, mapping: dict) -> tuple[list[dict], list[dict], lis
             telemetry.append(_telemetry(spec, mapping["point_prefix"], asset, name, value, received, received,
                                         mapping["mapping_version"], {}))
     return telemetry, [], quality
+
+
+def normalize_outs(raw: dict, mapping: dict) -> tuple[list[dict], list[dict], list[dict]]:
+    """Controme outs/ -> Ventilstellung je Raum in % (Mittel der Ausgänge). Räume ohne Ausgang: kein Wert."""
+    received = parse_iso(raw["received_at"])
+    floors = raw["payload"]
+    if not isinstance(floors, list):
+        return [], [], [{"source": "controme", "kind": "schema_error", "detail": "outs ist keine Liste"}]
+    telemetry, quality = [], []
+    spec = {k: mapping[k] for k in ("quantity", "role", "medium", "unit", "measurement_kind")}
+    for floor in floors:
+        floor_name = str(floor.get("etagenname", "")).strip()
+        for room in floor.get("raeume", []):
+            unknown = sorted(set(room) - set(mapping["known_keys"]))
+            if unknown:
+                quality.append({"source": "controme", "kind": "unknown_keys", "detail": f"outs Raum {room.get('id')}: {unknown}"})
+            outs = room.get("ausgang") or {}
+            if not isinstance(outs, dict) or not outs:
+                continue
+            vals = [_num(v) for v in outs.values()]
+            if any(v is None for v in vals):
+                quality.append({"source": "controme", "kind": "invalid_value", "detail": f"outs Raum {room.get('id')}: {outs}"})
+                continue
+            pct = [v * 100 if v <= 1 else v for v in vals]
+            asset_id = f"{mapping['asset_prefix']}{room['id']}"
+            t = _telemetry(spec, mapping["point_prefix"], asset_id, str(room.get("name", "")).strip(),
+                           round(sum(pct) / len(pct), 1), received, received, mapping["mapping_version"],
+                           {"floor": floor_name})
+            telemetry.append(t)
+    return telemetry, [], quality
