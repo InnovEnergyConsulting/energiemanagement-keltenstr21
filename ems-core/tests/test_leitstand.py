@@ -149,15 +149,7 @@ def test_power_estimate_marks_gap_unsure():
     assert est["abschnitte"][0][3] is False
 
 
-def test_messages_resolved_and_connection_state():
-    q = [{"time": NOW - timedelta(hours=3), "source": "eebus", "kind": "unknown_entity", "detail": "Entität 3 nicht im Mapping"},
-         {"time": NOW - timedelta(minutes=20), "source": "eebus", "kind": "value_state", "detail": "Außentemperatur Vaillant: error"}]
-    av = {**AVAIL, "eebus": {"status": "offline", "since": NOW - timedelta(minutes=5), "reason": "VR 940 im Netz nicht erreichbar"}}
-    wp = views.wp_view(NOW, LATEST, STATES, av, q)
-    first, *rest = wp["meldungen"]
-    assert first["aktuell"] and first["stufe"] == "stoerung" and "getrennt – VR 940" in first["text"]
-    by = {m["text"]: m["erledigt"] for m in rest}
-    assert by["Entität 3 nicht im Mapping"] is True and by["Außentemperatur Vaillant: error"] is False
+def test_connection_building_up_is_only_a_hint():
     wp2 = views.wp_view(NOW, LATEST, STATES, {**AVAIL, "eebus": {"status": "verbindet", "since": NOW}}, [])
     raw = {("controme", "temps"): {"time": NOW, "http_status": 200}}
     items = {i["id"]: i for i in views.header(NOW, LATEST, AVAIL, raw, {}, views.fb_view(NOW, LATEST, STATES), wp2, 0)}
@@ -183,3 +175,29 @@ def test_dhw_periods_ignore_small_fluctuation():
     m = lambda minutes: NOW - timedelta(minutes=minutes)
     temps = [(m(60), 50.0), (m(50), 51.0), (m(40), 50.5), (m(30), 51.5)]       # nur 1,5 K -> keine Ladung
     assert views.dhw_periods(temps) == []
+
+
+def test_meldungen_status_reopen_and_storage(tmp_path):
+    from ems.leitstand import meldungen as ml
+    q = [{"time": NOW - timedelta(hours=5), "source": "eebus", "kind": "unknown_entity", "detail": "Entität 9 nicht im Mapping"},
+         {"time": NOW - timedelta(hours=1), "source": "eebus", "kind": "unknown_entity", "detail": "Entität 9 nicht im Mapping"},
+         {"time": NOW - timedelta(hours=2), "source": "eebus", "kind": "value_state", "detail": "Außen: error"}]
+    aus = [{"time": NOW - timedelta(hours=3), "source": "eebus", "status": "offline", "reason": "VR 940 nicht erreichbar"}]
+    g = ml.gruppieren(q, aus)
+    assert len(g) == 3
+    rows = ml.sortieren([ml.bewerten(x, None) for x in g.values()])
+    assert [r["wichtigkeit"] for r in rows] == ["kritisch", "kritisch", "unkritisch"]     # kritisch zuerst
+    assert all(r["status"] == "offen" for r in rows)
+    ab = ml.Ablage(tmp_path / "m.sqlite")
+    key = next(r["key"] for r in rows if r["art"] == "unknown_entity")
+    ab.aendern(key, {"status": "erledigt", "wichtigkeit": "kritisch", "notiz": "geprüft", "boese": "x"}, {}, "test")
+    ann = ab.alle()[key]
+    assert ann["status"] == "erledigt" and ann["wichtigkeit"] == "kritisch" and ann["notiz"] == "geprüft"
+    assert {j["feld"] for j in ab.journal(key)} == {"status", "wichtigkeit", "notiz"}
+    # danach erneut aufgetreten -> wieder offen
+    g[key]["zuletzt"] = datetime.now(timezone.utc) + timedelta(minutes=1)
+    r = ml.bewerten(g[key], ab.alle()[key])
+    assert r["status"] == "offen" and r["wieder_aufgetreten"]
+    import pytest
+    with pytest.raises(ValueError):
+        ab.aendern(key, {"status": "gelöscht"}, {}, "test")

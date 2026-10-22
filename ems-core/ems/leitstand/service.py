@@ -5,8 +5,9 @@ GET /                    Oberfläche (static/)
 GET /api/lage            Kopfzeile + alle drei Reiter (zwischengespeichert, 15 s)
 GET /api/verlauf?bereich=fb|wp&spanne=30m|60m|180m|6h|12h|24h|7d|30d
 GET /api/raum?id=<asset_id>&spanne=…   Raum-Detailfenster (Ist, Soll, Feuchte, zugeordnete Rückläufe)
+GET /api/meldungen?quelle=eebus|controme|wattwaechter   GET /api/meldung?key=…   POST /api/meldung (Bewertung)
 GET /healthz
-Kein schreibender Pfad: Schaltbefehle kommen erst mit dem Steuerdienst (Phase 8).
+Einziger schreibender Pfad: Bewertung von Meldungen (SQLite). Schaltbefehle kommen erst mit dem Steuerdienst (Phase 8).
 """
 import json
 import mimetypes
@@ -23,7 +24,7 @@ import yaml
 from ..common.config import env, secret
 from ..common.log import setup
 from ..common.timeutil import iso, utcnow
-from . import views
+from . import meldungen, views
 from .queries import SERIES, SPANNEN, Influx, raum_filter
 
 log = setup("leitstand")
@@ -45,8 +46,8 @@ def load_shelly(path: Path) -> list[dict]:
 
 
 class Leitstand:
-    def __init__(self, influx: Influx, shelly_path: Path):
-        self.influx, self.shelly_path = influx, shelly_path
+    def __init__(self, influx: Influx, shelly_path: Path, ablage: "meldungen.Ablage"):
+        self.influx, self.shelly_path, self.ablage = influx, shelly_path, ablage
         self._lock = threading.Lock()
         self._cache: dict = {}
         self._wp_tage: dict = {}            # abgeschlossene Tage -> berechnete WP-Energie (ändern sich nicht mehr)
@@ -74,6 +75,26 @@ class Leitstand:
         totals["schaetzung"] = [[int(a.timestamp() * 1000), int(b.timestamp() * 1000), w, ok]
                                 for a, b, w, ok in est["abschnitte"] if b.timestamp() * 1000 >= totals["von"]]
         return totals
+
+    def _gruppen(self) -> dict:
+        return self._cached("meldungen", lambda: meldungen.gruppieren(self.influx.quality("-7d"),
+                                                                      self.influx.ausfaelle("-7d")))
+
+    def meldungsliste(self, quelle: str | None) -> list[dict]:
+        ann = self.ablage.alle()
+        rows = [meldungen.bewerten(g, ann.get(k)) for k, g in self._gruppen().items()
+                if quelle is None or g["quelle"] == quelle]
+        return meldungen.sortieren(rows)
+
+    def meldung(self, key: str) -> dict | None:
+        g = self._gruppen().get(key)
+        if g is None:
+            return None
+        row = meldungen.bewerten(g, self.ablage.alle().get(key))
+        row["vorkommen"] = [t.isoformat() for t in sorted(g["vorkommen"], reverse=True)[:50]]
+        row["erklaerung"] = meldungen.ERKLAERUNG.get(g["art"], "")
+        row["journal"] = self.ablage.journal(key)
+        return row
 
     def _wp_tag(self, d: date, now: datetime, first: datetime) -> dict:
         tz = ZoneInfo("Europe/Berlin")
@@ -163,6 +184,12 @@ def make_handler(app: Leitstand):
                     return self._send(200, b"ok", "text/plain")
                 if url.path == "/api/lage":
                     return self._json(app._cached("lage", app.lage))
+                if url.path == "/api/meldungen":
+                    q = parse_qs(url.query)
+                    return self._json({"meldungen": app.meldungsliste(q.get("quelle", [None])[0])})
+                if url.path == "/api/meldung":
+                    m = app.meldung(parse_qs(url.query).get("key", [""])[0])
+                    return self._json(m) if m else self._json({"fehler": "Meldung nicht gefunden"}, 404)
                 if url.path in ("/api/verlauf", "/api/raum"):
                     q = parse_qs(url.query)
                     spanne = q.get("spanne", ["24h"])[0]
@@ -196,13 +223,44 @@ def make_handler(app: Leitstand):
                 log.exception("Anfrage %s fehlgeschlagen", url.path)
                 return self._json({"fehler": f"{type(e).__name__}: {e}"[:300]}, 503)
 
+        def do_POST(self):
+            # Einziger schreibender Pfad: Bewertung von Meldungen (keine Geräte). Schutz gegen fremde Seiten:
+            # nur JSON und nur von der eigenen Herkunft (Browser setzen Origin bei POST immer).
+            url = urlparse(self.path)
+            try:
+                if url.path != "/api/meldung":
+                    return self._json({"fehler": "nicht gefunden"}, 404)
+                origin = self.headers.get("Origin", "")
+                host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host", "")
+                if not origin or urlparse(origin).netloc != host:
+                    return self._json({"fehler": "Herkunft nicht erlaubt"}, 403)
+                if not self.headers.get("Content-Type", "").startswith("application/json"):
+                    return self._json({"fehler": "JSON erwartet"}, 415)
+                length = min(int(self.headers.get("Content-Length", "0") or 0), 10_000)
+                body = json.loads(self.rfile.read(length) or b"{}")
+                key = str(body.get("key", ""))
+                g = app._gruppen().get(key)
+                if g is None:
+                    return self._json({"fehler": "Meldung nicht gefunden"}, 404)
+                von = self.headers.get("X-Forwarded-For", self.client_address[0]).split(",")[0].strip()
+                app.ablage.aendern(key, body, {"text": g["text"], "quelle": g["quelle"]}, von)
+                log.info("Meldung %s geändert von %s: %s", key, von,
+                         {k: body[k] for k in ("status", "wichtigkeit") if k in body})
+                return self._json(app.meldung(key))
+            except ValueError as e:
+                return self._json({"fehler": str(e)}, 400)
+            except Exception as e:
+                log.exception("POST %s fehlgeschlagen", url.path)
+                return self._json({"fehler": f"{type(e).__name__}: {e}"[:300]}, 500)
+
     return Handler
 
 
 def run():
     influx = Influx(env("EMS_INFLUX_URL", "http://influxdb:8086"), env("EMS_INFLUX_ORG", "keltenstr21"),
                     secret("influx-tokens/leitstand_token"))
-    app = Leitstand(influx, Path(env("EMS_SHELLY_INVENTORY", "/app/inventory/shelly.yaml")))
+    app = Leitstand(influx, Path(env("EMS_SHELLY_INVENTORY", "/app/inventory/shelly.yaml")),
+                    meldungen.Ablage(Path(env("EMS_LEITSTAND_DB", "/var/lib/ems-leitstand/meldungen.sqlite"))))
     port = int(env("EMS_LEITSTAND_PORT", "8080"))
     log.info("Leitstand lauscht auf Port %d", port)
     ThreadingHTTPServer(("0.0.0.0", port), make_handler(app)).serve_forever()

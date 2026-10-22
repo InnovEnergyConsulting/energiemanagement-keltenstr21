@@ -89,6 +89,19 @@ a{color:var(--accent)}
 .card h3 small{font-family:var(--f-body);font-weight:400;color:var(--ink-3);font-size:12px}
 .scroll{overflow-x:auto}
 .mt{margin-top:12px}
+table.meld select{font:inherit;font-size:12px;padding:2px 4px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:2px}
+table.meld select.kritisch{border-color:var(--alarm);background:var(--alarm-soft)}
+table.meld select.offen.krit{border-color:var(--warn);background:var(--warn-soft)}
+table.meld tr.erledigt td{color:var(--ink-3)}
+.meld-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end}
+.meld-form label{display:grid;gap:4px;font-size:12px;color:var(--ink-2)}
+.meld-form select,.meld-form textarea{font:inherit;font-size:13px;padding:5px 6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:2px}
+.meld-form textarea{min-height:64px;resize:vertical}
+.meld-form .full{grid-column:1/-1}
+.btn{appearance:none;border:1px solid var(--accent);background:var(--accent);color:var(--panel);font:inherit;font-size:13px;padding:6px 14px;border-radius:2px;cursor:pointer;justify-self:start}
+.btn:disabled{opacity:.5;cursor:default}
+.erkl{max-width:75ch;margin:0;color:var(--ink-2)}
+.vork{display:flex;flex-wrap:wrap;gap:4px 10px;font-family:var(--f-data);font-size:12px;color:var(--ink-2)}
 table{border-collapse:collapse;width:100%;font-size:13px}
 th{font-weight:500;color:var(--ink-2);text-align:left;font-size:12px;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 td{padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}

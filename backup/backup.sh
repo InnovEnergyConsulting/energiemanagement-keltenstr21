@@ -43,7 +43,7 @@ backup_usb() {
   fi
   restic -r "$REPO_USB" cat config >/dev/null 2>&1 || { log "Lege USB-Repository an"; restic -r "$REPO_USB" init || return 1; }
   if ! restic -r "$REPO_USB" backup --host ems-keltenstr21 --tag ems --one-file-system \
-        "$stage" /src/config /src/secrets /src/data-grafana /src/data-mosquitto /src/data-caddy /src/data-writer; then
+        "$stage" /src/config /src/secrets /src/data-grafana /src/data-mosquitto /src/data-caddy /src/data-writer /src/data-leitstand; then
     report usb 0 $((SECONDS-t0)) "restic backup fehlgeschlagen"; rm -rf "$stage"; return 1
   fi
   rm -rf "$stage"

@@ -152,6 +152,16 @@ class Influx:
                     "ssid": wifi.get("SSId")}
         return None
 
+    def ausfaelle(self, since: str = "-7d") -> list[dict]:
+        """Verbindungsabbrüche der Adapter (availability mit Status offline)."""
+        flux = f'''from(bucket: "ems_events") |> range(start: {since})
+  |> filter(fn: (r) => r._measurement == "availability" and (r._field == "status" or r._field == "reason"))
+  |> pivot(rowKey: ["_time", "component"], columnKey: ["_field"], valueColumn: "_value")
+  |> filter(fn: (r) => r.status == "offline")
+  |> group() |> sort(columns: ["_time"])'''
+        return [{"time": r.get_time(), "source": r.values.get("component"), "status": r.values.get("status"),
+                 "reason": r.values.get("reason")} for r in self._records(flux)]
+
     def series(self, flt: str, spanne: str, fn: str = "mean") -> dict:
         secs, every = SPANNEN[spanne]
         now = utcnow()

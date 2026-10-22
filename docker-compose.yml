@@ -151,9 +151,11 @@ services:
       EMS_INFLUX_URL: http://influxdb:8086
       EMS_INFLUX_ORG: keltenstr21
       EMS_SHELLY_INVENTORY: /app/inventory/shelly.yaml
+      EMS_LEITSTAND_DB: /var/lib/ems-leitstand/meldungen.sqlite
     volumes:
       - ./secrets/influx-tokens/leitstand_token:/run/ems-secrets/influx-tokens/leitstand_token:ro
       - ./inventory:/app/inventory:ro
+      - ./data/leitstand:/var/lib/ems-leitstand          # Bewertung der Meldungen (wird gesichert)
     depends_on:
       influxdb: { condition: service_healthy }
     healthcheck:
@@ -234,6 +236,7 @@ services:
       - ./data/mosquitto:/src/data-mosquitto:ro
       - ./data/caddy:/src/data-caddy:ro
       - ./data/writer:/src/data-writer:ro
+      - ./data/leitstand:/src/data-leitstand:ro
     depends_on:
       influxdb: { condition: service_healthy }
     networks: [backend, device]               # backend: InfluxDB; device: Internet für OneDrive

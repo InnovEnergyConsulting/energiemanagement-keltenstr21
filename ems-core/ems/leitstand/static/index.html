@@ -49,6 +49,9 @@
         <tbody id="fb-returns"></tbody></table></div></div>
       <div class="card"><h3>Vorlauf</h3><div id="fb-flow"></div></div>
     </div>
+      <div class="card" data-meldungen="controme"><h3>Meldungen <small>Fußbodenheizung (Controme) · letzte 7 Tage, gleiche zusammengefasst · Zeile anklicken für Details</small></h3><div class="scroll"><table class="meld">
+      <thead><tr><th>zuletzt</th><th>Status</th><th>Wichtigkeit</th><th>Meldung</th><th class="n">Anzahl</th><th class="n">erstmals</th></tr></thead>
+      <tbody><tr><td colspan="6" class="dim">lädt …</td></tr></tbody></table></div></div>
   </section>
 
   <!-- Reiter 2: Wärmepumpe (EEBUS) -->
@@ -72,9 +75,9 @@
         <div class="card"><h3>Temperaturen</h3><div class="chart" id="wp-chart-temp"></div><div class="legend" id="wp-legend-temp"></div></div>
       </div>
     </div>
-    <div class="card"><h3>Meldungen <small>letzte 7 Tage, gleiche Meldungen zusammengefasst · „besteht“ = in der letzten Stunde erneut gemeldet</small></h3><div class="scroll"><table>
-      <thead><tr><th>zuletzt</th><th>Meldung</th><th class="n">Anzahl</th><th>erstmals</th></tr></thead>
-      <tbody id="wp-msgs"></tbody></table></div></div>
+    <div class="card" data-meldungen="eebus"><h3>Meldungen <small>Wärmepumpe (EEBUS) · letzte 7 Tage, gleiche zusammengefasst · Zeile anklicken für Details</small></h3><div class="scroll"><table class="meld">
+      <thead><tr><th>zuletzt</th><th>Status</th><th>Wichtigkeit</th><th>Meldung</th><th class="n">Anzahl</th><th class="n">erstmals</th></tr></thead>
+      <tbody><tr><td colspan="6" class="dim">lädt …</td></tr></tbody></table></div></div>
   </section>
 
   <!-- Reiter 3: Strom (Hauptzähler über WattWächter) -->
@@ -89,6 +92,9 @@
       </div>
     </div>
     <div class="card"><h3>Messgerät</h3><div class="chips" id="strom-geraet"></div></div>
+      <div class="card" data-meldungen="wattwaechter"><h3>Meldungen <small>Hauptzähler (WattWächter) · letzte 7 Tage, gleiche zusammengefasst · Zeile anklicken für Details</small></h3><div class="scroll"><table class="meld">
+      <thead><tr><th>zuletzt</th><th>Status</th><th>Wichtigkeit</th><th>Meldung</th><th class="n">Anzahl</th><th class="n">erstmals</th></tr></thead>
+      <tbody><tr><td colspan="6" class="dim">lädt …</td></tr></tbody></table></div></div>
   </section>
 
   <!-- Reiter 4: Shelly -->
@@ -122,6 +128,15 @@
         <div class="card"><h3>Luftfeuchte</h3><div class="chart" id="raum-chart-hum"></div><div class="legend" id="raum-legend-hum"></div></div>
       </div>
     </div>
+  </dialog>
+
+  <!-- Meldung-Detailfenster -->
+  <dialog id="meld-dlg" aria-labelledby="meld-titel">
+    <div class="dlg-head">
+      <div><h2 id="meld-titel">Meldung</h2><small id="meld-sub"></small></div>
+      <button class="close" id="meld-zu" aria-label="Schließen" title="Schließen (Esc)">×</button>
+    </div>
+    <div class="dlg-body" id="meld-body"></div>
   </dialog>
 
   <div class="foot"><span>Tiefere Auswertungen: <a href="https://192.168.0.172:8443/grafana/">Grafana</a></span><span>Daten: InfluxDB, Aktualisierung alle 30 s</span><span id="foot-state"></span></div>

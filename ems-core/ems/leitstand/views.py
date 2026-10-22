@@ -21,7 +21,6 @@ BACKUP_STOERUNG_S = 50 * 3600
 RESTORE_HINWEIS_S = 35 * 86400
 IM_SOLL_K = 0.5
 
-MELDUNG_ERLEDIGT_S = 3600
 STATUS_DE = {"online": "verbunden", "offline": "getrennt", "verbindet": "Verbindungsaufbau", "pairing": "Kopplung läuft"}
 MODE_DE = {"auto": "Automatik", "on": "Ein", "off": "Aus", "Heating": "Heizen", "Cooling": "Kühlen"}
 
@@ -151,28 +150,6 @@ def wp_view(now: datetime, latest: list[dict], states: dict, availability: dict,
     if online and power is not None and power["alter_s"] > EEBUS_VALUE_HINWEIS_S:
         hinweise.append(f"Leistung seit {int(power['alter_s'] // 60)} min nicht aktualisiert")
 
-    # Meldungen: gleiche Texte zusammenfassen (der Adapter liest alle 5 Minuten neu)
-    grouped = {}
-    for q in quality:
-        if q["source"] != "eebus":
-            continue
-        g = grouped.setdefault(q["detail"], {"text": q["detail"], "art": q["kind"], "anzahl": 0,
-                                             "erstmals": q["time"], "zuletzt": q["time"]})
-        g["anzahl"] += 1
-        g["erstmals"], g["zuletzt"] = min(g["erstmals"], q["time"]), max(g["zuletzt"], q["time"])
-    meldungen = sorted(grouped.values(), key=lambda g: g["zuletzt"], reverse=True)
-    for g in meldungen:                         # Normalizer wiederholt anhaltende Störungen alle 30 min
-        g["erledigt"] = age_s(now, g["zuletzt"]) > MELDUNG_ERLEDIGT_S
-    if av.get("since"):
-        text = "EEBUS-Verbindung: " + STATUS_DE.get(av.get("status"), av.get("status") or "?")
-        if av.get("reason"):
-            text += f" – {av['reason']}"
-        meldungen.insert(0, {"text": text, "art": "verbindung", "anzahl": 1, "erstmals": av["since"],
-                             "zuletzt": av["since"], "erledigt": False, "aktuell": True,
-                             "stufe": OK if av.get("status") == "online" else HINWEIS if av.get("status") == "verbindet" else STOERUNG})
-    for g in meldungen:
-        g["erstmals"], g["zuletzt"] = g["erstmals"].isoformat(), g["zuletzt"].isoformat()
-
     return {
         "verbindung": {"status": av.get("status"), "seit": av["since"].isoformat() if av.get("since") else None,
                        "grund": av.get("reason") or None},
@@ -188,7 +165,7 @@ def wp_view(now: datetime, latest: list[dict], states: dict, availability: dict,
                 "failsafe_dauer": wp.get("failsafeDurationMinimum"),
                 "failsafe_w": wp.get("failsafeConsumptionActivePowerLimit")},
         "energie": energy,
-        "hinweise": hinweise, "meldungen": meldungen[:12],
+        "hinweise": hinweise,
     }
 
 

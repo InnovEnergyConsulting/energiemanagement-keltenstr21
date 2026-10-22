@@ -372,12 +372,6 @@
     $("wp-chips").innerHTML = chips.join("");
 
     renderWpEnergie(wp.energie_berechnet);
-    $("wp-msgs").innerHTML = wp.meldungen.map(function (m) {
-      var tag = m.aktuell ? ' <span class="tag ' + (m.stufe === "ok" ? "" : m.stufe) + '">aktuell</span>'
-        : m.erledigt ? ' <span class="tag">erledigt</span>' : ' <span class="tag hinweis">besteht</span>';
-      return '<tr' + (m.erledigt ? ' class="dim"' : "") + '><td class="n">' + esc(when(m.zuletzt)) + '</td><td class="wrap-text">' + esc(m.text) + tag +
-        '</td><td class="n">' + (m.aktuell ? "–" : m.anzahl) + '</td><td class="n dim">' + esc(when(m.erstmals)) + "</td></tr>";
-    }).join("") || '<tr><td colspan="4" class="dim">keine Meldungen</td></tr>';
     renderWpCharts();
   }
   function renderWpEnergie(e) {
@@ -554,6 +548,96 @@
     legend($("strom-legend-power"), pw);
   }
 
+  // ------------------------------------------------------------------ Meldungen (je Reiter, mit Bewertung)
+  var STATUS_TXT = { offen: "offen", in_arbeit: "in Arbeit", erledigt: "erledigt" };
+  var WICHT_TXT = { kritisch: "kritisch", unkritisch: "unkritisch" };
+  var QUELLE_TXT = { eebus: "Wärmepumpe (EEBUS)", controme: "Fußbodenheizung (Controme)", wattwaechter: "Hauptzähler (WattWächter)", normalizer: "Datenkern" };
+  var TAB_QUELLE = { fb: "controme", wp: "eebus", strom: "wattwaechter" };
+  var meldCache = {};
+  function sel(feld, wert, opts, extra) {
+    return '<select data-feld="' + feld + '" class="' + (extra || "") + '" aria-label="' + (feld === "status" ? "Status" : "Wichtigkeit") + '">' +
+      Object.keys(opts).map(function (k) { return '<option value="' + k + '"' + (k === wert ? " selected" : "") + ">" + opts[k] + "</option>"; }).join("") + "</select>";
+  }
+  function renderMeldungen(quelle) {
+    var box = document.querySelector('[data-meldungen="' + quelle + '"] tbody'), rows = meldCache[quelle] || [];
+    if (!box) return;
+    box.innerHTML = rows.map(function (m) {
+      var krit = m.wichtigkeit === "kritisch";
+      return '<tr class="pick ' + m.status + '" tabindex="0" data-key="' + m.key + '" data-quelle="' + quelle + '" title="Details anzeigen">' +
+        '<td class="n">' + esc(when(m.zuletzt)) + "</td>" +
+        "<td>" + sel("status", m.status, STATUS_TXT, m.status + (krit ? " krit" : "")) + "</td>" +
+        "<td>" + sel("wichtigkeit", m.wichtigkeit, WICHT_TXT, krit && m.status !== "erledigt" ? "kritisch" : "") + "</td>" +
+        '<td class="wrap-text">' + esc(m.text) + (m.wieder_aufgetreten ? ' <span class="tag hinweis">wieder aufgetreten</span>' : "") +
+        (m.notiz ? ' <span class="tag" title="' + esc(m.notiz) + '">Notiz</span>' : "") + "</td>" +
+        '<td class="n">' + m.anzahl + '</td><td class="n dim">' + esc(when(m.erstmals)) + "</td></tr>";
+    }).join("") || '<tr><td colspan="6" class="dim">keine Meldungen in den letzten 7 Tagen</td></tr>';
+  }
+  function loadMeldungen(quelle) {
+    if (!quelle) return;
+    getJSON("api/meldungen?quelle=" + quelle).then(function (d) { meldCache[quelle] = d.meldungen; renderMeldungen(quelle); }).catch(function () {});
+  }
+  function postMeldung(body) {
+    return fetch("api/meldung", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.fehler || "HTTP " + r.status); return j; }); });
+  }
+  function openMeldung(key, quelle) {
+    var dlg = $("meld-dlg");
+    $("meld-body").innerHTML = '<div class="empty">lädt …</div>';
+    if (!dlg.open) { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+    getJSON("api/meldung?key=" + encodeURIComponent(key)).then(function (m) { renderMeldungDetail(m, quelle); })
+      .catch(function (e) { $("meld-body").innerHTML = '<div class="empty">' + esc(e.message) + "</div>"; });
+  }
+  function renderMeldungDetail(m, quelle) {
+    $("meld-titel").textContent = m.text;
+    $("meld-sub").textContent = (QUELLE_TXT[m.quelle] || m.quelle) + " · Art: " + m.art;
+    var h = '<div class="kpis">' +
+      kpi(m.status === "erledigt" ? "" : m.wichtigkeit === "kritisch" ? "stoerung" : "hinweis", "Status", STATUS_TXT[m.status], m.wieder_aufgetreten ? "nach „erledigt“ erneut aufgetreten" : "") +
+      kpi("", "Anzahl (7 Tage)", String(m.anzahl), "") +
+      kpi("", "erstmals", esc(when(m.erstmals)), "") + kpi("", "zuletzt", esc(when(m.zuletzt)), "") + "</div>";
+    if (m.erklaerung) h += '<div><div class="lvl">Bedeutung</div><p class="erkl">' + esc(m.erklaerung) + "</p></div>";
+    h += '<div><div class="lvl">Bearbeitung</div><form class="meld-form" id="meld-form">' +
+      "<label>Status" + sel("status", m.status, STATUS_TXT) + "</label>" +
+      "<label>Wichtigkeit" + sel("wichtigkeit", m.wichtigkeit, WICHT_TXT) + "</label>" +
+      '<label class="full">Notiz<textarea name="notiz" maxlength="2000" placeholder="z. B. Installateur informiert, Fühler wird am … angeschlossen">' + esc(m.notiz) + "</textarea></label>" +
+      '<button class="btn" type="submit">Speichern</button><span class="dim" id="meld-msg" aria-live="polite"></span></form></div>';
+    h += '<div><div class="lvl">Vorkommen <span>– neueste zuerst, höchstens 50</span></div><div class="vork">' +
+      m.vorkommen.map(function (t) { return "<span>" + esc(fmtDateTime.format(new Date(t))) + "</span>"; }).join("") + "</div></div>";
+    h += '<div><div class="lvl">Änderungsverlauf</div>' + (m.journal.length ? '<div class="scroll"><table><thead><tr><th>Zeit</th><th>Feld</th><th>alt</th><th>neu</th><th>von</th></tr></thead><tbody>' +
+      m.journal.map(function (j) {
+        var t = function (f, v) { return v == null ? "–" : f === "status" ? STATUS_TXT[v] || v : f === "wichtigkeit" ? WICHT_TXT[v] || v : v; };
+        return '<tr><td class="n">' + esc(when(j.zeit)) + "</td><td>" + esc(j.feld) + '</td><td class="wrap-text dim">' + esc(t(j.feld, j.alt)) + '</td><td class="wrap-text">' + esc(t(j.feld, j.neu)) + '</td><td class="dim">' + esc(j.von) + "</td></tr>";
+      }).join("") + "</tbody></table></div>" : '<p class="erkl dim">noch nicht bearbeitet</p>') + "</div>";
+    $("meld-body").innerHTML = h;
+    $("meld-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var f = e.target, btn = f.querySelector("button");
+      btn.disabled = true; $("meld-msg").textContent = "speichere …";
+      postMeldung({ key: m.key, status: f.querySelector('[data-feld="status"]').value, wichtigkeit: f.querySelector('[data-feld="wichtigkeit"]').value, notiz: f.notiz.value })
+        .then(function (neu) { renderMeldungDetail(neu, quelle); $("meld-msg").textContent = "gespeichert"; loadMeldungen(quelle); })
+        .catch(function (err) { btn.disabled = false; $("meld-msg").textContent = "Fehler: " + err.message; });
+    });
+  }
+  [].forEach.call(document.querySelectorAll("[data-meldungen]"), function (card) {
+    var quelle = card.getAttribute("data-meldungen"), tb = card.querySelector("tbody");
+    tb.addEventListener("change", function (e) {
+      var s = e.target, tr = s.closest("tr"); if (!s.getAttribute("data-feld") || !tr) return;
+      var body = { key: tr.getAttribute("data-key") }; body[s.getAttribute("data-feld")] = s.value;
+      s.disabled = true;
+      postMeldung(body).then(function () { loadMeldungen(quelle); }).catch(function (err) { s.disabled = false; alert_(err.message); });
+    });
+    tb.addEventListener("click", function (e) {
+      if (e.target.closest("select")) return;
+      var tr = e.target.closest("tr[data-key]"); if (tr) openMeldung(tr.getAttribute("data-key"), quelle);
+    });
+    tb.addEventListener("keydown", function (e) {
+      var tr = e.target.closest("tr[data-key]");
+      if (tr && e.target === tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openMeldung(tr.getAttribute("data-key"), quelle); }
+    });
+  });
+  function alert_(msg) { $("fehler").hidden = false; $("fehler").textContent = "Speichern fehlgeschlagen: " + msg; }
+  $("meld-zu").addEventListener("click", function () { var d = $("meld-dlg"); if (d.close) d.close(); else d.removeAttribute("open"); });
+  $("meld-dlg").addEventListener("click", function (e) { if (e.target === $("meld-dlg")) $("meld-dlg").close(); });
+
   // ------------------------------------------------------------------ Reiter Shelly
   function renderShelly(sh) {
     $("sh-on").textContent = "– von " + sh.geraete.length;
@@ -608,7 +692,7 @@
     });
     store("ems-tab", name);
     if (push && location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
-    if (name === "fb" || name === "wp" || name === "strom") loadVerlauf(name);
+    if (name === "fb" || name === "wp" || name === "strom") { loadVerlauf(name); loadMeldungen(TAB_QUELLE[name]); }
   }
   tabs.forEach(function (t, i) {
     t.addEventListener("click", function () { show(t.getAttribute("data-hash"), true); });
@@ -650,7 +734,7 @@
   var h0 = location.hash.slice(1), start = $("p-" + h0) ? h0 : store("ems-tab");
   show($("p-" + start) ? start : "fb");
   loadLage().then(function () { loadVerlauf(state.tab === "shelly" ? "fb" : state.tab); });
-  setInterval(loadLage, LAGE_MS);
+  setInterval(function () { loadLage(); if (!$("meld-dlg").open) loadMeldungen(TAB_QUELLE[state.tab]); }, LAGE_MS);
   setInterval(function () {
     if (state.tab !== "shelly") loadVerlauf(state.tab);
     if ($("raum-dlg").open) loadRaum();

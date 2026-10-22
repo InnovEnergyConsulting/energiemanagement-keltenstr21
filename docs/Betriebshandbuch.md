@@ -111,6 +111,12 @@ gezeichnet und bis 6 h ab dem letzten Wert fortgeführt – auch vom letzten Wer
 Pausen bleiben als Lücke sichtbar. Ein stufenloser Schieberegler (1 min – 30 Tage) wurde geprüft und verworfen
 (siehe Entscheidung vom 20.10.2026 im Chat: feste Stufen sind reproduzierbar, feiner als die Messrate sinnlos).
 
+**Meldungen** (je Reiter, seit 22.10.2026): Qualitätsmeldungen des Normalizers und Verbindungsabbrüche der letzten
+7 Tage, gleiche zusammengefasst. Status (offen / in Arbeit / erledigt), Wichtigkeit (kritisch / unkritisch) und Notiz
+sind im Leitstand änderbar; gespeichert in `data/leitstand/meldungen.sqlite` (mit Änderungsjournal, wird gesichert).
+Eine erledigte Meldung, die erneut auftritt, steht automatisch wieder auf „offen“. Das ist der einzige schreibende
+Pfad des Leitstands (nur JSON von der eigenen Herkunft, kein Gerätezugriff).
+
 Shelly-Geräte stehen in `inventory/shelly.yaml` (mDNS-Fund 20.10.2026). Dort `zweck` und `stromkreis` ergänzen,
 dann erscheinen sie im Reiter. Grenzwerte: `ems-core/ems/leitstand/views.py`. Nach Code-Änderungen:
 `docker compose build controme-adapter && docker compose up -d --no-deps --force-recreate controme-adapter normalizer writer leitstand`.
