@@ -71,3 +71,42 @@ Täglich 06:30 erzeugt `scripts/eebus-analyse.py` einen Bericht unter `data/eebu
 
 **Klärung durch den Nutzer (20.10.2026):** Außenfühler noch nicht angeschlossen; Heizkreis wird am
 21.10.2026 in Betrieb genommen; Energie-Messung der WP (eigener Zähler) wird geklärt. IP des VR 940 fest.
+
+---
+
+## 4. Zweite Bestandsaufnahme – 22.10.2026 (Anlage in Betrieb, Auswertung 21.10. 16:00 – 22.10. 07:40)
+
+Strukturänderungen: 21.10. 05:08 Entitäten neu adressiert (WP 1→3, neu 3.1 Verdichter mit OHPCF);
+22.10. 05:48 zweiter Heizkreis „Zone 2“ (Entitäten 7 / 7.1 / 7.1.1) hinzugekommen; Entität 6 heißt jetzt `TemperatureSensor`.
+
+Gerät (Entität 3, deviceClassificationManufacturerData): **aroTHERM plus VWL 75/8.1 A 230V**, Seriennummer 8000033711.
+
+### Mit Wert geliefert
+
+| Entität | Größe | Werte | Bereich | Im EMS |
+|---|---|---|---|---|
+| 3 Wärmepumpe | acPowerTotal (W) | 1088 | 23 – 2127 W | ja (`vaillant_wp.active_power`) |
+| 3.1 Verdichter | acPowerTotal (W), Grenzen 0–3390 W, Schritt 100 W | 1100 | 17 – 2122 W | ja (`vaillant_wp_verdichter.active_power`) |
+| 3 | Leistungsbegrenzung § 14a: inaktiv, 0 W, änderbar | 190 | – | ja (Zustand) |
+| 3 | Failsafe 1 000 000 W für PT2H | 190 | – | ja (Zustand) |
+| 3 | Betriebszustand `normalOperation`, Herzschlag alle ~60 s | 1125 | – | Zustand (nicht im Leitstand) |
+| 4 Warmwasser | dhwTemperature (°C) | 484 | 39 – 56 °C | ja |
+| 4 | Soll (Setpoint 1) | 190 | 55 °C | ja |
+| 4 | Betriebsart auto, Schnellladung inaktiv | 190 | – | ja |
+| 5.1 | Zonenname „Zone 1“ | – | – | nein |
+| 5.1.1 Zone 1 | roomAirTemperature (°C) | 198 | 21 – 21,5 °C | ja |
+| 5.1.1 | Soll (Setpoint 1) | 192 | 22 – 24 °C | ja |
+| 5.1.1 | Heizbetrieb **on** (Betriebsart 1) | 190 | – | ja |
+| 6 Außenfühler | outsideAirTemperature (°C) | 334 | 8,5 – 12 °C | ja (Fühler funktioniert jetzt) |
+| 7.1 | Zonenname „Zone 2“ | – | – | nein |
+| 7.1.1 Zone 2 | roomAirTemperature: **0 °C, valueState error** | 23 | – | **nein (nicht im Mapping)** |
+| 7.1.1 | Soll (Setpoint 1) | 23 | 21 °C | **nein** |
+| 7.1.1 | Heizbetrieb on | 23 | – | **nein** |
+
+### Beschrieben, aber ohne Wert
+
+- WP (3) und Verdichter (3.1): **acEnergyConsumed / acEnergyProduced (Wh)**, Ströme L1–L3, Leistung je Phase, Spannungen (je Phase zwei Messungen – vermutlich Leiter-N und Leiter-Leiter), Frequenz.
+  → **Die Energiewerte der App (z. B. 14,3 kWh, Heizung/Warmwasser getrennt) kommen nicht über EEBUS**, sondern über die Vaillant-Cloud.
+- Setpoints 0 und 2 (Warmwasser, beide Zonen): nur Platzhalter ohne Typ/Wert; Setpoint 2 gehört zur Betriebsart „off“ (Relation).
+- Entität 1 (CEM-Seite des VR 940): Kennwert `contractualConsumptionNominalMax` (W) ohne Wert.
+- 3.1 `smartEnergyManagementPsData` (OHPCF-Leistungsprofil): wird vom Adapter bewusst nicht gelesen (Steuer-Anwendungsfall).
