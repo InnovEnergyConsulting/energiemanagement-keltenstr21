@@ -153,10 +153,12 @@ services:
       EMS_INFLUX_ORG: keltenstr21
       EMS_SHELLY_INVENTORY: /app/inventory/shelly.yaml
       EMS_LEITSTAND_DB: /var/lib/ems-leitstand/meldungen.sqlite
+      EMS_TARIFE_DB: /var/lib/ems-tarife/tarife.sqlite
     volumes:
       - ./secrets/influx-tokens/leitstand_token:/run/ems-secrets/influx-tokens/leitstand_token:ro
       - ./inventory:/app/inventory:ro
       - ./data/leitstand:/var/lib/ems-leitstand          # Bewertung der Meldungen (wird gesichert)
+      - ./data/tarife:/var/lib/ems-tarife                # Preishistorie (Reiter Einstellungen, wird gesichert)
     depends_on:
       influxdb: { condition: service_healthy }
     healthcheck:
@@ -188,6 +190,16 @@ services:
     container_name: ems-normalizer
     command: ["normalizer"]
     mem_limit: 128m
+    environment:
+      TZ: Europe/Berlin
+      EMS_MQTT_HOST: mosquitto
+      EMS_MQTT_PORT: "1883"
+      EMS_SECRETS_DIR: /run/ems-secrets
+      EMS_TARIFE_DB: /var/lib/ems-tarife/tarife.sqlite
+    volumes:
+      - ./secrets:/run/ems-secrets:ro
+      - ./config/mapping:/app/mapping:ro
+      - ./data/tarife:/var/lib/ems-tarife:ro              # Preishistorie (pflegt der Leitstand), nur lesen
     networks: [backend]
 
   writer:
@@ -238,6 +250,7 @@ services:
       - ./data/caddy:/src/data-caddy:ro
       - ./data/writer:/src/data-writer:ro
       - ./data/leitstand:/src/data-leitstand:ro
+      - ./data/tarife:/src/data-tarife:ro
     depends_on:
       influxdb: { condition: service_healthy }
     networks: [backend, device]               # backend: InfluxDB; device: Internet für OneDrive

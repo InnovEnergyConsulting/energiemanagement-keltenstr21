@@ -152,6 +152,42 @@ class Influx:
                     "ssid": wifi.get("SSId")}
         return None
 
+    def kosten_stunden(self, zaehlpunkt: str, start: datetime, stop: datetime) -> list[dict]:
+        """Kosten je Stunde und Berechnungsversion. Jünger als 390 Tage aus ems_detail, älter aus ems_agg (Stundensummen,
+        unbegrenzt) – so bleiben Vergleiche über Jahre möglich."""
+        grenze = utcnow() - timedelta(days=390)
+        teile = []
+        if start < grenze:
+            teile.append(("ems_agg", start, min(stop, grenze), ' and r.agg == "sum_1h"'))
+        if stop > grenze:
+            teile.append(("ems_detail", max(start, grenze), stop, ""))
+        out = []
+        for bucket, a, b, extra in teile:
+            flux = f'''from(bucket: "{bucket}") |> range(start: {_t(a)}, stop: {_t(b)})
+  |> filter(fn: (r) => r._measurement == "kosten" and r.zaehlpunkt == "{zaehlpunkt}" and (r._field == "menge" or r._field == "kosten_eur"){extra})
+  |> group(columns: ["berechnung_version", "herkunft", "vorlaeufig", "tarif_version", "_field"])
+  |> aggregateWindow(every: 1h, fn: sum, createEmpty: false)'''
+            for r in self._records(flux):
+                v = r.values
+                out.append({"stunde": r.get_time(), "version": int(v.get("berechnung_version") or 1),
+                            "herkunft": v.get("herkunft"), "vorlaeufig": v.get("vorlaeufig") == "ja",
+                            "tarif_version": v.get("tarif_version"), "feld": r.get_field(), "wert": r.get_value()})
+        return out
+
+    def kosten_gruppen(self) -> list[dict]:
+        """Je Zählpunkt / Preisversion / Berechnungsversion: erster und letzter Zeitpunkt (für Neuberechnungs-Hinweise)."""
+        out = {}
+        for fn in ("first", "last"):
+            flux = f'''from(bucket: "ems_detail") |> range(start: -400d)
+  |> filter(fn: (r) => r._measurement == "kosten" and r._field == "menge")
+  |> group(columns: ["zaehlpunkt", "tarif_version", "berechnung_version"]) |> {fn}()'''
+            for r in self._records(flux):
+                v = r.values
+                k = (v["zaehlpunkt"], v.get("tarif_version"), int(v.get("berechnung_version") or 1))
+                out.setdefault(k, {"zaehlpunkt": k[0], "tarif_version": k[1], "berechnung_version": k[2]})[
+                    "von" if fn == "first" else "bis"] = r.get_time()
+        return list(out.values())
+
     def ventil_mittel(self, minuten: int = 60) -> dict[str, float]:
         """Öffnungsanteil je Raum über die letzten `minuten` (Mittel der minütlichen Ventilstellung in %)."""
         flux = f'''from(bucket: "ems_detail") |> range(start: -{minuten}m)

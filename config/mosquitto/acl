@@ -9,6 +9,8 @@
 #   ems/v1/state/<asset>                 Zustände (Szene, Betriebsart …)
 #   ems/v1/availability/<asset|quelle>   online/offline (retained, Last Will)
 #   ems/v1/quality/<quelle>              Schemaabweichungen, unbekannte Schlüssel
+#   ems/v1/kosten/<zählpunkt>            Menge + Preis + Kosten je Intervall (Kostenrechner im Normalizer)
+#   ems/v1/kostenstand/<zählpunkt>       letzter Zählerstand/Leistung des Kostenrechners (retained, für Neustarts)
 #   ems/v1/command/<asset>/request|result   gesperrt bis Phase 8
 
 # Wartung/Fehlersuche: nur lesen
@@ -30,6 +32,8 @@ user wattwaechter
 topic write ems/v1/device/wattwaechter/#
 
 user normalizer
+topic write ems/v1/kosten/#
+topic readwrite ems/v1/kostenstand/#
 topic read ems/v1/device/#
 topic write ems/v1/raw/wattwaechter/#
 topic write ems/v1/availability/wattwaechter
@@ -40,6 +44,7 @@ topic write ems/v1/quality/#
 topic readwrite ems/v1/availability/normalizer
 
 user writer
+topic read ems/v1/kosten/#
 topic read ems/v1/raw/#
 topic read ems/v1/telemetry/#
 topic read ems/v1/state/#

@@ -5,6 +5,7 @@ GET /                    Oberfläche (static/)
 GET /api/lage            Kopfzeile + alle drei Reiter (zwischengespeichert, 15 s)
 GET /api/verlauf?bereich=fb|wp&spanne=30m|60m|180m|6h|12h|24h|7d|30d
 GET /api/raum?id=<asset_id>&spanne=…   Raum-Detailfenster (Ist, Soll, Feuchte, zugeordnete Rückläufe)
+GET /api/tarife   POST /api/tarif (neue Preisversion / Korrektur)
 GET /api/meldungen?quelle=eebus|controme|wattwaechter   GET /api/meldung?key=…   POST /api/meldung (Bewertung)
 GET /healthz
 Einziger schreibender Pfad: Bewertung von Meldungen (SQLite). Schaltbefehle kommen erst mit dem Steuerdienst (Phase 8).
@@ -25,6 +26,7 @@ from ..common.config import env, secret
 from ..common.log import setup
 from ..common.timeutil import iso, utcnow
 from . import meldungen, views
+from ..kosten.tarife import ZAEHLPUNKTE, Tarife, grundkosten
 from .queries import SERIES, SPANNEN, Influx, raum_filter
 
 log = setup("leitstand")
@@ -46,8 +48,8 @@ def load_shelly(path: Path) -> list[dict]:
 
 
 class Leitstand:
-    def __init__(self, influx: Influx, shelly_path: Path, ablage: "meldungen.Ablage"):
-        self.influx, self.shelly_path, self.ablage = influx, shelly_path, ablage
+    def __init__(self, influx: Influx, shelly_path: Path, ablage: "meldungen.Ablage", tarife: Tarife):
+        self.influx, self.shelly_path, self.ablage, self.tarife = influx, shelly_path, ablage, tarife
         self._lock = threading.Lock()
         self._cache: dict = {}
         self._wp_tage: dict = {}            # abgeschlossene Tage -> berechnete WP-Energie (ändern sich nicht mehr)
@@ -75,6 +77,31 @@ class Leitstand:
         totals["schaetzung"] = [[int(a.timestamp() * 1000), int(b.timestamp() * 1000), w, ok]
                                 for a, b, w, ok in est["abschnitte"] if b.timestamp() * 1000 >= totals["von"]]
         return totals
+
+    def kosten(self, zp: str, now: datetime) -> dict:
+        """Kosten heute / Monat / Jahr: Arbeitspreis aus den beim Eintreffen berechneten Werten, Grundpreis aus der
+        Preishistorie (zeitanteilig)."""
+        tz = ZoneInfo("Europe/Berlin")
+        local = now.astimezone(tz)
+        mitternacht = local.replace(hour=0, minute=0, second=0, microsecond=0)
+        start = {"heute": mitternacht, "monat": mitternacht.replace(day=1), "jahr": mitternacht.replace(month=1, day=1)}
+        stunden = self._cached(f"kosten|{zp}", lambda: self.influx.kosten_stunden(
+            zp, start["jahr"].astimezone(timezone.utc), now + timedelta(hours=1)), ttl=60)
+        out = {}
+        for k, a in start.items():
+            s_ = views.kosten_summe(stunden, a.astimezone(timezone.utc), now)
+            s_["eur_grund"] = grundkosten(self.tarife, zp, a.astimezone(timezone.utc), now)
+            s_["eur"] = round(s_["eur_arbeit"] + s_["eur_grund"], 2)
+            out[k] = s_
+        aktuell = self.tarife.preis_zu(zp, now)
+        out["preis"] = None if not aktuell else {k: aktuell[k] for k in ("id", "arbeitspreis_ct", "grundpreis_eur_monat", "vorlaeufig", "gueltig_ab")}
+        return out
+
+    def tarif_uebersicht(self) -> dict:
+        zps = {zp: {**meta, "versionen": self.tarife.versionen(zp)} for zp, meta in ZAEHLPUNKTE.items()}
+        gueltige = {zp: self.tarife.gueltige(zp) for zp in ZAEHLPUNKTE}
+        hinweise = self._cached("kosten_hinweise", lambda: views.neuberechnung_hinweise(self.influx.kosten_gruppen(), gueltige), ttl=60)
+        return {"zaehlpunkte": zps, "journal": self.tarife.journal(30), "hinweise": hinweise}
 
     def _gruppen(self) -> dict:
         return self._cached("meldungen", lambda: meldungen.gruppieren(self.influx.quality("-7d"),
@@ -150,6 +177,8 @@ class Leitstand:
         anfang = {k: ix.counter_first("hausanschluss", "energy_import_total", v.astimezone(timezone.utc))
                   for k, v in starts.items()}
         strom = views.strom_view(now, latest, avail, raw_last, anfang, ix.device_state("wattwaechter"))
+        strom["kosten"] = self.kosten("haushalt", now)
+        wp["kosten"] = self.kosten("waermepumpe", now)
         est = views.power_from_steps(ix.counter_points("hausanschluss", "energy_import_total", now - timedelta(days=2)), now)
         strom["schaetzung"] = {k: v for k, v in est.items() if k != "abschnitte"}
         kopf = views.header(now, latest, avail, raw_last, ix.backups(), fb, wp, len(shelly), strom)
@@ -184,6 +213,8 @@ def make_handler(app: Leitstand):
                     return self._send(200, b"ok", "text/plain")
                 if url.path == "/api/lage":
                     return self._json(app._cached("lage", app.lage))
+                if url.path == "/api/tarife":
+                    return self._json(app.tarif_uebersicht())
                 if url.path == "/api/meldungen":
                     q = parse_qs(url.query)
                     return self._json({"meldungen": app.meldungsliste(q.get("quelle", [None])[0])})
@@ -223,26 +254,37 @@ def make_handler(app: Leitstand):
                 log.exception("Anfrage %s fehlgeschlagen", url.path)
                 return self._json({"fehler": f"{type(e).__name__}: {e}"[:300]}, 503)
 
+        def _herkunft_ok(self) -> bool:
+            # Schutz gegen fremde Seiten: nur JSON und nur von der eigenen Herkunft (Browser setzen Origin bei POST).
+            origin = self.headers.get("Origin", "")
+            host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host", "")
+            return bool(origin) and urlparse(origin).netloc == host
+
         def do_POST(self):
-            # Einziger schreibender Pfad: Bewertung von Meldungen (keine Geräte). Schutz gegen fremde Seiten:
-            # nur JSON und nur von der eigenen Herkunft (Browser setzen Origin bei POST immer).
+            # Schreibende Pfade nur für Verwaltungsdaten des Leitstands (Meldungen, Preise) – nie Geräte.
             url = urlparse(self.path)
             try:
-                if url.path != "/api/meldung":
+                if url.path not in ("/api/meldung", "/api/tarif"):
                     return self._json({"fehler": "nicht gefunden"}, 404)
-                origin = self.headers.get("Origin", "")
-                host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host", "")
-                if not origin or urlparse(origin).netloc != host:
+                if not self._herkunft_ok():
                     return self._json({"fehler": "Herkunft nicht erlaubt"}, 403)
                 if not self.headers.get("Content-Type", "").startswith("application/json"):
                     return self._json({"fehler": "JSON erwartet"}, 415)
                 length = min(int(self.headers.get("Content-Length", "0") or 0), 10_000)
                 body = json.loads(self.rfile.read(length) or b"{}")
+                von = self.headers.get("X-Forwarded-For", self.client_address[0]).split(",")[0].strip()
+                if url.path == "/api/tarif":
+                    ersetzt = body.get("ersetzt")
+                    neu = app.tarife.anlegen(body, von, ersetzt=int(ersetzt) if ersetzt not in (None, "") else None)
+                    log.info("Preis angelegt von %s: %s %s ct ab %s%s", von, neu["zaehlpunkt"], neu["arbeitspreis_ct"],
+                             neu["gueltig_ab"], f" (ersetzt {ersetzt})" if ersetzt else "")
+                    with app._lock:
+                        app._cache.pop("kosten_hinweise", None)
+                    return self._json(app.tarif_uebersicht())
                 key = str(body.get("key", ""))
                 g = app._gruppen().get(key)
                 if g is None:
                     return self._json({"fehler": "Meldung nicht gefunden"}, 404)
-                von = self.headers.get("X-Forwarded-For", self.client_address[0]).split(",")[0].strip()
                 app.ablage.aendern(key, body, {"text": g["text"], "quelle": g["quelle"]}, von)
                 log.info("Meldung %s geändert von %s: %s", key, von,
                          {k: body[k] for k in ("status", "wichtigkeit") if k in body})
@@ -260,7 +302,8 @@ def run():
     influx = Influx(env("EMS_INFLUX_URL", "http://influxdb:8086"), env("EMS_INFLUX_ORG", "keltenstr21"),
                     secret("influx-tokens/leitstand_token"))
     app = Leitstand(influx, Path(env("EMS_SHELLY_INVENTORY", "/app/inventory/shelly.yaml")),
-                    meldungen.Ablage(Path(env("EMS_LEITSTAND_DB", "/var/lib/ems-leitstand/meldungen.sqlite"))))
+                    meldungen.Ablage(Path(env("EMS_LEITSTAND_DB", "/var/lib/ems-leitstand/meldungen.sqlite"))),
+                    Tarife(Path(env("EMS_TARIFE_DB", "/var/lib/ems-tarife/tarife.sqlite")), schreibend=True))
     port = int(env("EMS_LEITSTAND_PORT", "8080"))
     log.info("Leitstand lauscht auf Port %d", port)
     ThreadingHTTPServer(("0.0.0.0", port), make_handler(app)).serve_forever()

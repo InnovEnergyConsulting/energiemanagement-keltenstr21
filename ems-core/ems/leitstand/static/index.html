@@ -24,6 +24,7 @@
     <button class="tab" role="tab" id="t-wp" data-hash="wp" aria-controls="p-wp" aria-selected="false">Regelung WP <span class="badge" id="b-wp">–</span></button>
     <button class="tab" role="tab" id="t-strom" data-hash="strom" aria-controls="p-strom" aria-selected="false">Strom <span class="badge" id="b-strom">–</span></button>
     <button class="tab" role="tab" id="t-shelly" data-hash="shelly" aria-controls="p-shelly" aria-selected="false">Steuerung Shelly <span class="badge" id="b-shelly">geplant</span></button>
+    <button class="tab" role="tab" id="t-einstellungen" data-hash="einstellungen" aria-controls="p-einstellungen" aria-selected="false">Einstellungen</button>
   </nav>
 
   <!-- Reiter 1: Fußbodenheizung (Controme) -->
@@ -97,6 +98,18 @@
       <tbody><tr><td colspan="6" class="dim">lädt …</td></tr></tbody></table></div></div>
   </section>
 
+  <!-- Reiter: Einstellungen (Preise) -->
+  <section class="pane" role="tabpanel" id="p-einstellungen" aria-labelledby="t-einstellungen" hidden>
+    <div>
+      <div class="lvl">Preise <span>– Kosten werden beim Eintreffen mit dem Preis zum Messzeitpunkt berechnet und mit Preis und Version gespeichert. Preise nie überschreiben: neuer Preis = neue Version ab Datum; Fehler = „Korrigieren“.</span></div>
+      <div id="tarif-hinweise"></div>
+      <div class="grid2" id="tarif-karten"></div>
+    </div>
+    <div class="card"><h3>Änderungsjournal <small>neueste zuerst</small></h3><div class="scroll"><table>
+      <thead><tr><th>Zeit</th><th>Aktion</th><th>Zählpunkt</th><th>gültig ab</th><th class="n">Arbeitspreis</th><th class="n">Grundpreis</th><th>von</th></tr></thead>
+      <tbody id="tarif-journal"></tbody></table></div></div>
+  </section>
+
   <!-- Reiter 4: Shelly -->
   <section class="pane" role="tabpanel" id="p-shelly" aria-labelledby="t-shelly" hidden>
     <div>
@@ -138,6 +151,22 @@
       <button class="close" id="meld-zu" aria-label="Schließen" title="Schließen (Esc)">×</button>
     </div>
     <div class="dlg-body" id="meld-body"></div>
+  </dialog>
+
+  <!-- Preis anlegen / korrigieren -->
+  <dialog id="tarif-dlg" aria-labelledby="tarif-titel">
+    <div class="dlg-head"><div><h2 id="tarif-titel">Neuer Preis</h2><small id="tarif-sub"></small></div>
+      <button class="close" id="tarif-zu" aria-label="Schließen">×</button></div>
+    <div class="dlg-body"><form class="meld-form" id="tarif-form">
+      <label>gültig ab<input type="datetime-local" name="gueltig_ab" required></label>
+      <label><span id="tarif-einheit">Arbeitspreis (ct/kWh, brutto)</span><input type="number" name="arbeitspreis_ct" step="0.01" min="0" required></label>
+      <label>Grundpreis (€/Monat, brutto)<input type="number" name="grundpreis_eur_monat" step="0.01" min="0" value="0"></label>
+      <label>MwSt. (%)<input type="number" name="mwst_prozent" step="0.1" min="0" max="100" placeholder="z. B. 19"></label>
+      <label>Anbieter / Tarif<input type="text" name="anbieter" maxlength="200"></label>
+      <label><span><input type="checkbox" name="vorlaeufig"> vorläufig (Preis noch nicht bestätigt)</span></label>
+      <label class="full">Quelle / Notiz<textarea name="notiz" maxlength="1000" placeholder="z. B. Rechnung 2025, S. 2"></textarea></label>
+      <button class="btn" type="submit">Speichern</button><span class="dim" id="tarif-msg" aria-live="polite"></span>
+    </form></div>
   </dialog>
 
   <div class="foot"><span>Tiefere Auswertungen: <a href="https://192.168.0.172:8443/grafana/">Grafana</a></span><span>Daten: InfluxDB, Aktualisierung alle 30 s</span><span id="foot-state"></span></div>

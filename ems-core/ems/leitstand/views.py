@@ -410,3 +410,53 @@ def wp_energy(power: list[tuple[datetime, float]], temps: list[tuple[datetime, f
         covered += dt
     return {"heizung": round(heiz, 3), "warmwasser": round(ww, 3), "gesamt": round(heiz + ww, 3),
             "abdeckung_h": round(covered / 3600, 2), "ladungen": sum(1 for a, b in periods if start <= a < end)}
+
+
+
+# --------------------------------------------------------------------------------- Kosten
+def kosten_summe(stunden: list[dict], von: datetime, bis: datetime) -> dict:
+    """Summe im Zeitraum; je Stunde gilt die neueste Berechnungsversion (Neuberechnungen ersetzen ältere)."""
+    neueste = {}
+    for r in stunden:
+        neueste[r["stunde"]] = max(neueste.get(r["stunde"], 0), r["version"])
+    menge = eur = ohne_preis = 0.0
+    geschaetzt = vorlaeufig = False
+    for r in stunden:
+        if not (von < r["stunde"] <= bis + timedelta(hours=1)) or r["version"] != neueste[r["stunde"]]:
+            continue
+        if r["feld"] == "menge":
+            menge += r["wert"]
+            if str(r["tarif_version"]) == "0":
+                ohne_preis += r["wert"]
+        else:
+            eur += r["wert"]
+        geschaetzt |= r["herkunft"] == "geschaetzt"
+        vorlaeufig |= r["vorlaeufig"]
+    return {"menge": round(menge, 3), "eur_arbeit": round(eur, 2), "ct_mittel": round(100 * eur / menge, 2) if menge else None,
+            "geschaetzt": geschaetzt, "vorlaeufig": vorlaeufig, "menge_ohne_preis": round(ohne_preis, 3)}
+
+
+def neuberechnung_hinweise(gruppen: list[dict], gueltige: dict[str, list[dict]]) -> list[dict]:
+    """Kosten, die mit einer inzwischen ersetzten oder zeitlich nicht mehr passenden Preisversion berechnet wurden
+    und noch nicht durch eine höhere Berechnungsversion abgelöst sind."""
+    out = []
+    for g in gruppen:
+        if "von" not in g or "bis" not in g:
+            continue
+        ok = False
+        for v in gueltige.get(g["zaehlpunkt"], []):
+            if str(v["id"]) == str(g["tarif_version"]):
+                ab = datetime.fromisoformat(v["gueltig_ab"])
+                bis = datetime.fromisoformat(v["gueltig_bis"]) if v["gueltig_bis"] else None
+                ok = ab <= g["von"] + timedelta(minutes=30) and (bis is None or g["bis"] <= bis + timedelta(minutes=30))
+        if str(g["tarif_version"]) == "0" and not gueltige.get(g["zaehlpunkt"]):
+            ok = True                               # noch gar kein Preis hinterlegt: nichts neu zu berechnen
+        if ok:
+            continue
+        abgeloest = any(h["zaehlpunkt"] == g["zaehlpunkt"] and h["berechnung_version"] > g["berechnung_version"]
+                        and h.get("von") and h.get("bis") and h["von"] <= g["von"] + timedelta(hours=1)
+                        and h["bis"] >= g["bis"] - timedelta(hours=1) for h in gruppen)
+        if not abgeloest:
+            out.append({"zaehlpunkt": g["zaehlpunkt"], "von": g["von"].isoformat(), "bis": g["bis"].isoformat(),
+                        "tarif_version": g["tarif_version"], "berechnung_version": g["berechnung_version"]})
+    return out

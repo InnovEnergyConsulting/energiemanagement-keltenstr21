@@ -14,8 +14,11 @@ import yaml
 
 from ..common import log as logsetup
 from ..common.config import mapping_dir
+from ..common.config import env
 from ..common.mqtt import Bus
-from ..common.timeutil import utcnow
+from ..kosten.rechner import KostenRechner
+from ..kosten.tarife import Tarife
+from ..common.timeutil import parse_iso, utcnow
 from . import controme, eebus, tasmota
 
 log = logsetup.setup("ems.normalizer")
@@ -33,9 +36,10 @@ TASMOTA_DEVICES = {"wattwaechter": "tasmota_wattwaechter"}
 
 
 class Normalizer:
-    def __init__(self, mappings: dict, publish):
+    def __init__(self, mappings: dict, publish, kosten: "KostenRechner | None" = None):
         self.mappings = mappings
         self.publish = publish
+        self.kosten = kosten
         self.last: dict[str, tuple[str, float]] = {}
         self.reported_quality: dict[str, float] = {}   # Meldung -> Zeitpunkt der letzten Ausgabe
         self.eebus_state = eebus.EebusState()
@@ -64,6 +68,13 @@ class Normalizer:
             self._emit(device, "sensor", telemetry, states, quality)
 
     def handle(self, topic: str, payload: bytes):
+        if topic.startswith("ems/v1/kostenstand/"):
+            if self.kosten:
+                try:
+                    self.kosten.seed(topic.rsplit("/", 1)[1], json.loads(payload))
+                except ValueError:
+                    pass
+            return
         if topic.startswith("ems/v1/device/"):
             return self.handle_device(topic, payload)
         parts = topic.split("/")            # ems/v1/raw/<quelle>/<strom>
@@ -109,11 +120,27 @@ class Normalizer:
             self.last[key] = (t["measured_at"], t["value"])
             self.publish(f"ems/v1/telemetry/{t['asset_id']}/{t['quantity']}", t)
             sent += 1
+            self._kosten(t)
         for s in states:
             self.publish(f"ems/v1/state/{s['asset_id']}", s)
         for q in quality:
             self._quality(q)
         log.debug("%s/%s: %d Messwerte, %d Zustände", source, stream, sent, len(states))
+
+    def _kosten(self, t: dict):
+        """Mengen für die Kostenrechnung (Konzept docs/Kosten_Tarife_Konzept.md)."""
+        if not self.kosten:
+            return
+        zeit = parse_iso(t["measured_at"])
+        try:
+            if t["asset_id"] == "hausanschluss" and t["quantity"] == "energy_import_total":
+                self.kosten.zaehlerstand("haushalt", t["value"], zeit)
+            elif t["asset_id"] == "hausanschluss" and t["quantity"] == "energy_export_total":
+                self.kosten.zaehlerstand("einspeisung", t["value"], zeit)
+            elif t["asset_id"] == "vaillant_wp" and t["quantity"] == "active_power":
+                self.kosten.leistung("waermepumpe", t["value"], zeit)   # bis zum eigenen WP-Zähler: geschätzt
+        except Exception as exc:  # Kostenrechnung darf die Messwerte nie blockieren
+            log.exception("Kostenrechnung fehlgeschlagen: %s", exc)
 
     def _quality(self, q: dict):
         # gleiche Meldung höchstens alle QUALITY_REPEAT_S (sonst flutet ein Schemafehler jede Minute die Datenbank);
@@ -136,8 +163,10 @@ def run():
     log.info("Mappings geladen: %s", ", ".join(f"{k} v{v['mapping_version']}" for k, v in mappings.items()))
     holder = {}
     bus = Bus("ems-normalizer", "normalizer", "ems/v1/availability/normalizer",
-              subscriptions=["ems/v1/raw/#", "ems/v1/device/#"], on_message=lambda t, p: holder["n"].handle(t, p))
-    holder["n"] = Normalizer(mappings, bus.publish_json)
+              subscriptions=["ems/v1/kostenstand/#", "ems/v1/raw/#", "ems/v1/device/#"],
+              on_message=lambda t, p: holder["n"].handle(t, p))
+    tarife = Tarife(env("EMS_TARIFE_DB", "/var/lib/ems-tarife/tarife.sqlite"))
+    holder["n"] = Normalizer(mappings, bus.publish_json, KostenRechner(tarife, bus.publish_json))
     bus.start()
     while True:
         time.sleep(3600)

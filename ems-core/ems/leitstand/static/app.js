@@ -384,18 +384,23 @@
     chips.push('<span class="chip">Schnellladung: <b>' + (w.schnellladung == null ? "–" : w.schnellladung ? "aktiv" : "inaktiv") + "</b></span>");
     chips.push(wp.energie ? '<span class="chip">Energie: <b>' + num(wp.energie.wert, 1) + " kWh</b></span>"
       : '<span class="chip">Energie: <b>berechnet aus Leistung</b> – Zählerwerte liefert Vaillant nicht per EEBUS</span>');
+    chips.push(preisChip(wp.kosten, "kWh"));
+    chips.push('<span class="chip" title="Bis zum eigenen WP-Zähler">WP-Kosten sind <b>im Hauptzähler (Reiter Strom) enthalten</b></span>');
     $("wp-chips").innerHTML = chips.join("");
 
-    renderWpEnergie(wp.energie_berechnet);
+    renderWpEnergie(wp.energie_berechnet, wp.kosten);
     renderWpCharts();
   }
-  function renderWpEnergie(e) {
+  function renderWpEnergie(e, kosten) {
     if (!e) { $("wp-energie").innerHTML = kpi("unbekannt", "WP-Verbrauch", "–", "noch keine Leistungswerte"); $("wp-chart-tage").innerHTML = ""; return; }
     function k(lab, x, seit) {
       var lueck = x.abdeckung_pct != null && x.abdeckung_pct < 95;
-      return kpi(lueck ? "hinweis" : "", lab, num(x.gesamt, 1) + " <small>kWh</small>",
-        "Heizung " + num(x.heizung, 1) + " · Warmwasser " + num(x.warmwasser, 1) + (lueck ? " · Daten nur für " + x.abdeckung_pct + " % der Zeit" : "") + (seit ? " · " + seit : ""),
-        x.ladungen + " Warmwasserladungen erkannt; Messabdeckung " + num(x.abdeckung_h, 1) + " von " + num(x.moeglich_h, 1) + " h");
+      var ko = kosten && kosten[{ "Verbrauch heute": "heute", "Verbrauch dieser Monat": "monat", "Verbrauch dieses Jahr": "jahr" }[lab]];
+      var anteil = ko && ko.menge ? ko.eur_arbeit / ko.menge : null;   // €/kWh aus den gespeicherten Kosten
+      return kpi(lueck ? "hinweis" : "", lab, num(x.gesamt, 1) + " <small>kWh</small>" + (ko && ko.menge ? " <small>· " + euro(ko.eur) + "</small>" : ""),
+        "Heizung " + num(x.heizung, 1) + (anteil != null ? " (" + euro(x.heizung * anteil) + ")" : "") + " · Warmwasser " + num(x.warmwasser, 1) + (anteil != null ? " (" + euro(x.warmwasser * anteil) + ")" : "") +
+        (ko && ko.vorlaeufig ? " · vorläufiger Preis" : "") + (lueck ? " · Daten nur für " + x.abdeckung_pct + " % der Zeit" : "") + (seit ? " · " + seit : ""),
+        x.ladungen + " Warmwasserladungen erkannt; Messabdeckung " + num(x.abdeckung_h, 1) + " von " + num(x.moeglich_h, 1) + " h. " + kostenTitel(ko));
     }
     var first = new Date(e.seit), seit = "seit " + fmtDate.format(first);
     $("wp-energie").innerHTML = k("Verbrauch heute", e.heute) + k("Verbrauch dieser Monat", e.monat, e.monat.moeglich_h < 24 * 28 ? seit : "") + k("Verbrauch dieses Jahr", e.jahr, seit);
@@ -463,7 +468,8 @@
     else h += kpi("geplant", "Ø-Leistung (geschätzt)", "wartet auf kWh-Sprünge", "erscheint nach zwei Sprüngen des Zählerstands");
     ["heute", "monat", "jahr"].forEach(function (k) {
       var x = per[k], lab = { heute: "Bezug heute", monat: "Bezug dieser Monat", jahr: "Bezug dieses Jahr" }[k];
-      h += x ? kpi("", lab, kwh(x.kwh) + " <small>kWh</small>", "seit " + when(x.seit))
+      var ko = st.kosten && st.kosten[k];
+      h += x ? kpi("", lab, kwh(x.kwh) + " <small>kWh</small>", "seit " + when(x.seit) + kostenText(ko), kostenTitel(ko))
         : kpi("unbekannt", lab, "–", "noch kein Zählerstand");
     });
     h += b ? kpi("", "Zählerstand Bezug (1.8.0)", num(b.wert, b.wert % 1 ? 1 : 0) + " <small>kWh</small>", "vor " + ago(b.alter_s))
@@ -491,8 +497,27 @@
     if (g.signal_dbm != null) chips.push('<span class="chip' + (g.signal_dbm < -75 ? " hinweis" : "") + '">WLAN: <b>' + g.signal_dbm + " dBm</b>" + (g.signal_dbm < -75 ? " – schwach" : "") + "</span>");
     if (g.uptime) chips.push('<span class="chip">Laufzeit: <b>' + esc(g.uptime.replace("T", " Tage ")) + "</b></span>");
     chips.push('<span class="chip geplant">PIN: <b>' + (p ? "freigeschaltet" : "fehlt") + "</b> – Leistungswerte erst mit PIN</span>");
+    chips.push(preisChip(st.kosten, "kWh"));
+    chips.push('<span class="chip hinweis" title="Bis der eigene WP-Zähler eingebaut ist, läuft die Wärmepumpe über den Hauptzähler. Die WP-Kosten im Reiter „Regelung WP“ sind hier bereits enthalten – nicht addieren.">Hauptzähler enthält derzeit <b>auch die Wärmepumpe</b></span>');
     $("strom-geraet").innerHTML = chips.join("");
     renderStromCharts();
+  }
+  function euro(v) { return v == null ? "–" : num(v, 2) + " €"; }
+  function kostenText(ko) {
+    if (!ko) return "";
+    if (!ko.menge && !ko.eur_grund) return " · Kosten ab Preisbeginn";
+    return " · " + euro(ko.eur) + (ko.vorlaeufig ? " (vorläufiger Preis)" : "") + (ko.menge_ohne_preis ? " · " + num(ko.menge_ohne_preis, 1) + " ohne Preis" : "");
+  }
+  function kostenTitel(ko) {
+    if (!ko) return "";
+    return "Arbeitspreis " + euro(ko.eur_arbeit) + " für " + num(ko.menge, 2) + " (Ø " + (ko.ct_mittel == null ? "–" : num(ko.ct_mittel, 2) + " ct") + "), Grundpreis " + euro(ko.eur_grund) +
+      (ko.geschaetzt ? "; Menge geschätzt (aus Leistung)" : "") + "; berechnet beim Eintreffen mit dem jeweils gültigen Preis";
+  }
+  function preisChip(kosten, einheit) {
+    var pr = kosten && kosten.preis;
+    if (!pr) return '<span class="chip hinweis">Preis: <b>nicht hinterlegt</b> – Reiter „Einstellungen“</span>';
+    return '<span class="chip' + (pr.vorlaeufig ? " geplant" : "") + '">Preis: <b>' + num(pr.arbeitspreis_ct, 2) + " ct/" + einheit + "</b>" +
+      (pr.grundpreis_eur_monat ? " + " + num(pr.grundpreis_eur_monat, 2) + " €/Monat" : "") + " seit " + esc(when(pr.gueltig_ab)) + (pr.vorlaeufig ? " (vorläufig)" : "") + "</span>";
   }
   function bucketStart(t, day) {
     var off = tzOffset(t), size = day ? 864e5 : 36e5;
@@ -653,6 +678,78 @@
   $("meld-zu").addEventListener("click", function () { var d = $("meld-dlg"); if (d.close) d.close(); else d.removeAttribute("open"); });
   $("meld-dlg").addEventListener("click", function (e) { if (e.target === $("meld-dlg")) $("meld-dlg").close(); });
 
+  // ------------------------------------------------------------------ Reiter Einstellungen (Preise)
+  var tarifDaten = null, tarifForm = null;
+  function lokalEingabe(iso) {   // UTC-ISO -> "YYYY-MM-DDTHH:MM" in Ortszeit (für datetime-local)
+    var p = {}; new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+      .formatToParts(iso ? new Date(iso) : new Date()).forEach(function (x) { p[x.type] = x.value; });
+    return p.year + "-" + p.month + "-" + p.day + "T" + p.hour + ":" + p.minute;
+  }
+  function loadTarife() { getJSON("api/tarife").then(renderTarife).catch(function (e) { $("tarif-karten").innerHTML = '<div class="empty">' + esc(e.message) + "</div>"; }); }
+  function renderTarife(d) {
+    tarifDaten = d;
+    var zpName = function (zp) { return (d.zaehlpunkte[zp] || {}).name || zp; };
+    $("tarif-hinweise").innerHTML = d.hinweise.length ? '<div class="banner">' + d.hinweise.map(function (h) {
+      return "<div><b>Neuberechnung nötig:</b> " + esc(zpName(h.zaehlpunkt)) + " – Kosten " + esc(when(h.von)) + " bis " + esc(when(h.bis)) +
+        " wurden mit einer inzwischen geänderten Preisversion berechnet (Version " + esc(h.tarif_version) + "). Die alten Werte bleiben bis zur Neuberechnung gültig.</div>";
+    }).join("") + "</div>" : "";
+    $("tarif-karten").innerHTML = Object.keys(d.zaehlpunkte).map(function (zp) {
+      var z = d.zaehlpunkte[zp], vs = z.versionen.slice().reverse();
+      var rows = vs.map(function (v) {
+        var st = v.ersetzt_durch ? '<span class="tag">ersetzt</span>' : v.vorlaeufig ? '<span class="tag hinweis">vorläufig</span>' : '<span class="tag">gültig</span>';
+        var notiz = [v.anbieter, v.notiz].filter(Boolean).join(" – ");
+        return '<tr class="' + (v.ersetzt_durch ? "ersetzt" : "") + '"><td class="n">' + esc(fmtDateTime.format(new Date(v.gueltig_ab))) + "</td>" +
+          '<td class="n">' + num(v.arbeitspreis_ct, 2) + '</td><td class="n">' + num(v.grundpreis_eur_monat, 2) + "</td><td>" + st + "</td>" +
+          "<td>" + (v.ersetzt_durch ? "" : '<button class="btn klein zweit" data-korr="' + v.id + '" data-zp="' + zp + '">Korrigieren</button>') + "</td></tr>" +
+          (notiz ? '<tr class="' + (v.ersetzt_durch ? "ersetzt" : "") + '"><td colspan="5" class="wrap-text dim notiz">' + esc(notiz) + "</td></tr>" : "");
+      }).join("") || '<tr><td colspan="5" class="dim">noch kein Preis hinterlegt</td></tr>';
+      return '<div class="card"><h3>' + esc(z.name) + " <small>" + esc(z.einheit) + "</small></h3>" + '<div class="zp-meta">' + esc(z.messung) + "</div>" +
+        '<div class="scroll"><table><thead><tr><th>gültig ab</th><th class="n">ct/' + esc(z.einheit) + '</th><th class="n">€/Monat</th><th>Status</th><th></th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
+        '<button class="btn klein mt" data-neu="' + zp + '">Neuer Preis ab …</button></div>';
+    }).join("");
+    $("tarif-journal").innerHTML = d.journal.map(function (j) {
+      var x = {}; try { x = JSON.parse(j.daten); } catch (e) {}
+      return '<tr><td class="n">' + esc(when(j.zeit)) + "</td><td>" + esc(j.aktion) + "</td><td>" + esc(zpName(x.zaehlpunkt)) + '</td><td class="n">' + esc(x.gueltig_ab ? fmtDateTime.format(new Date(x.gueltig_ab)) : "–") +
+        '</td><td class="n">' + num(x.arbeitspreis_ct, 2) + " ct</td><td class=\"n\">" + num(x.grundpreis_eur_monat, 2) + ' €</td><td class="dim">' + esc(j.von) + "</td></tr>";
+    }).join("") || '<tr><td colspan="7" class="dim">noch keine Änderungen</td></tr>';
+  }
+  function oeffneTarif(zp, korrId) {
+    var z = tarifDaten.zaehlpunkte[zp], f = $("tarif-form"), v = null;
+    if (korrId) z.versionen.forEach(function (x) { if (String(x.id) === String(korrId)) v = x; });
+    tarifForm = { zaehlpunkt: zp, ersetzt: v ? v.id : null };
+    $("tarif-titel").textContent = (v ? "Preis korrigieren – " : "Neuer Preis – ") + z.name;
+    $("tarif-sub").textContent = v ? "Die bisherige Version bleibt als „ersetzt“ erhalten; Kosten des Zeitraums danach neu berechnen." : "Gilt ab dem gewählten Zeitpunkt bis zum nächsten Preis.";
+    $("tarif-einheit").textContent = "Arbeitspreis (ct/" + z.einheit + ", brutto)";
+    f.gueltig_ab.value = v ? lokalEingabe(v.gueltig_ab) : lokalEingabe(null);
+    f.gueltig_ab.disabled = !!v;
+    f.arbeitspreis_ct.value = v ? v.arbeitspreis_ct : "";
+    f.grundpreis_eur_monat.value = v ? v.grundpreis_eur_monat : 0;
+    f.mwst_prozent.value = v && v.mwst_prozent != null ? v.mwst_prozent : "";
+    f.anbieter.value = v ? v.anbieter || "" : "";
+    f.notiz.value = v ? v.notiz || "" : "";
+    f.vorlaeufig.checked = v ? !!v.vorlaeufig : false;
+    $("tarif-msg").textContent = "";
+    f.querySelector("button").disabled = false;
+    $("tarif-dlg").showModal();
+  }
+  $("tarif-karten").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    if (b.getAttribute("data-neu")) oeffneTarif(b.getAttribute("data-neu"), null);
+    if (b.getAttribute("data-korr")) oeffneTarif(b.getAttribute("data-zp"), b.getAttribute("data-korr"));
+  });
+  $("tarif-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var f = e.target, btn = f.querySelector("button");
+    var body = { zaehlpunkt: tarifForm.zaehlpunkt, ersetzt: tarifForm.ersetzt, gueltig_ab: f.gueltig_ab.value, arbeitspreis_ct: f.arbeitspreis_ct.value,
+      grundpreis_eur_monat: f.grundpreis_eur_monat.value, mwst_prozent: f.mwst_prozent.value, anbieter: f.anbieter.value, notiz: f.notiz.value, vorlaeufig: f.vorlaeufig.checked };
+    btn.disabled = true; $("tarif-msg").textContent = "speichere …";
+    fetch("api/tarif", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.fehler || "HTTP " + r.status); return j; }); })
+      .then(function (d) { renderTarife(d); $("tarif-dlg").close(); loadLage(); })
+      .catch(function (err) { btn.disabled = false; $("tarif-msg").textContent = "Fehler: " + err.message; });
+  });
+  $("tarif-zu").addEventListener("click", function () { $("tarif-dlg").close(); });
+
   // ------------------------------------------------------------------ Reiter Shelly
   function renderShelly(sh) {
     $("sh-on").textContent = "– von " + sh.geraete.length;
@@ -708,6 +805,7 @@
     store("ems-tab", name);
     if (push && location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
     if (name === "fb" || name === "wp" || name === "strom") { loadVerlauf(name); loadMeldungen(TAB_QUELLE[name]); }
+    if (name === "einstellungen") loadTarife();
   }
   tabs.forEach(function (t, i) {
     t.addEventListener("click", function () { show(t.getAttribute("data-hash"), true); });
@@ -748,10 +846,11 @@
 
   var h0 = location.hash.slice(1), start = $("p-" + h0) ? h0 : store("ems-tab");
   show($("p-" + start) ? start : "fb");
-  loadLage().then(function () { loadVerlauf(state.tab === "shelly" ? "fb" : state.tab); });
+  var MIT_VERLAUF = { fb: 1, wp: 1, strom: 1 };
+  loadLage().then(function () { loadVerlauf(MIT_VERLAUF[state.tab] ? state.tab : "fb"); });
   setInterval(function () { loadLage(); if (!$("meld-dlg").open) loadMeldungen(TAB_QUELLE[state.tab]); }, LAGE_MS);
   setInterval(function () {
-    if (state.tab !== "shelly") loadVerlauf(state.tab);
+    if (MIT_VERLAUF[state.tab]) loadVerlauf(state.tab);
     if ($("raum-dlg").open) loadRaum();
   }, 6e4);
 })();

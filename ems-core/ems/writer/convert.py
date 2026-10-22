@@ -69,3 +69,25 @@ def raw(msg: dict) -> tuple[str, str]:
          .field("http_status", int(msg.get("http_status", 0)))
          .field("duration_ms", int(msg.get("duration_ms", 0))))
     return "ems_raw", p.time(_ts(msg["received_at"]), WritePrecision.MS).to_line_protocol()
+
+
+KOSTEN_TAGS = ("zaehlpunkt", "einheit", "tarif_version", "herkunft", "berechnung_version")
+
+
+def kosten(msg: dict) -> tuple[str, str]:
+    """Kostenzeile (Konzept Kosten/Tarife): Menge, Preis und Kosten gemeinsam; Preis zusätzlich als Tag, damit er in den
+    Stundensummen (ems_agg, unbegrenzt) erhalten bleibt."""
+    p = Point("kosten")
+    for tag in KOSTEN_TAGS:
+        if msg.get(tag) not in (None, ""):
+            p = p.tag(tag, str(msg[tag]))
+    if msg.get("arbeitspreis_ct") is not None:
+        p = p.tag("arbeitspreis_ct", f"{float(msg['arbeitspreis_ct']):g}")
+    if msg.get("vorlaeufig"):
+        p = p.tag("vorlaeufig", "ja")
+    p = p.field("menge", float(msg["menge"]))
+    if msg.get("kosten_eur") is not None:
+        p = p.field("kosten_eur", float(msg["kosten_eur"]))
+    dauer = (_ts(msg["bis"]) - _ts(msg["von"])).total_seconds()
+    p = p.field("dauer_s", float(dauer))
+    return "ems_detail", p.time(_ts(msg["bis"]), WritePrecision.MS).to_line_protocol()

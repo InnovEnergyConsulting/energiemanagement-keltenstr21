@@ -30,9 +30,12 @@ token "ems-writer" writer_token \
 # Grafana: nur lesen
 token "ems-grafana-read" grafana_token \
   --read-bucket "$RAW" --read-bucket "$DET" --read-bucket "$AGG" --read-bucket "$EVT"
-# Leitstand: nur lesen (ohne Rohdaten-Bucket)
+# Leitstand: nur lesen (inkl. ems_agg für Kostenvergleiche über die 400-Tage-Grenze hinaus)
 token "ems-leitstand-read" leitstand_token \
-  --read-bucket "$RAW" --read-bucket "$DET" --read-bucket "$EVT"
+  --read-bucket "$RAW" --read-bucket "$DET" --read-bucket "$EVT" --read-bucket "$AGG"
+# Kosten-Nachberechnung (python -m ems kosten-rechnung): liest Mengen, schreibt Kosten + Stundensummen
+token "ems-kosten" kosten_token \
+  --read-bucket "$DET" --read-bucket "$AGG" --write-bucket "$DET" --write-bucket "$AGG"
 
 # Stündliche Verdichtung ems_detail -> ems_agg:
 # Momentanwerte (Temperatur, Leistung …) als Mittelwert, Zählerstände (*_total) als letzter Wert.
@@ -56,4 +59,17 @@ data
   |> to(bucket: "ems_agg")
 FLUX
 influx task create --org "$ORG" -f /tmp/agg.flux >/dev/null
+
+# Kosten je Stunde -> ems_agg (Konzept docs/Kosten_Tarife_Konzept.md)
+cat > /tmp/kosten.flux <<'FLUX'
+option task = {name: "ems_kosten_hourly", every: 1h, offset: 7m}
+
+from(bucket: "ems_detail")
+  |> range(start: -3h)
+  |> filter(fn: (r) => r._measurement == "kosten" and (r._field == "menge" or r._field == "kosten_eur"))
+  |> aggregateWindow(every: 1h, fn: sum, createEmpty: false)
+  |> set(key: "agg", value: "sum_1h")
+  |> to(bucket: "ems_agg")
+FLUX
+influx task create --org "$ORG" -f /tmp/kosten.flux >/dev/null
 echo "EMS-Init: Buckets, Tokens und Verdichtung angelegt."

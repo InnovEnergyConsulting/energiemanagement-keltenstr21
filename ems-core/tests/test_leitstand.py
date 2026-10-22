@@ -220,3 +220,21 @@ def test_rooms_without_valve_are_measurement_only():
     assert by["r2"]["nur_messung"] and not by["r1"]["nur_messung"]          # Flur ohne Ventil = nur Messung
     k = fb["kennzahlen"]
     assert k["mit_fuehler"] == 1 and k["groesste_abweichung"]["raum"] == "Küche" and k["nur_messung"] == 1
+
+
+def test_kosten_summe_newest_version_and_hints():
+    h = lambda hours: NOW - timedelta(hours=hours)
+    stunden = [{"stunde": h(2), "version": 1, "herkunft": "gemessen", "vorlaeufig": False, "tarif_version": "1", "feld": "menge", "wert": 2.0},
+               {"stunde": h(2), "version": 1, "herkunft": "gemessen", "vorlaeufig": False, "tarif_version": "1", "feld": "kosten_eur", "wert": 0.66},
+               {"stunde": h(2), "version": 2, "herkunft": "gemessen", "vorlaeufig": False, "tarif_version": "2", "feld": "menge", "wert": 2.0},
+               {"stunde": h(2), "version": 2, "herkunft": "gemessen", "vorlaeufig": False, "tarif_version": "2", "feld": "kosten_eur", "wert": 0.70},
+               {"stunde": h(1), "version": 1, "herkunft": "gemessen", "vorlaeufig": True, "tarif_version": "2", "feld": "menge", "wert": 1.0},
+               {"stunde": h(1), "version": 1, "herkunft": "gemessen", "vorlaeufig": True, "tarif_version": "2", "feld": "kosten_eur", "wert": 0.35}]
+    s = views.kosten_summe(stunden, h(5), NOW)
+    assert s["menge"] == 3.0 and s["eur_arbeit"] == 1.05 and s["ct_mittel"] == 35.0 and s["vorlaeufig"]
+    gueltige = {"haushalt": [{"id": 2, "gueltig_ab": h(48).isoformat(), "gueltig_bis": None}]}
+    gruppen = [{"zaehlpunkt": "haushalt", "tarif_version": "1", "berechnung_version": 1, "von": h(10), "bis": h(2)},
+               {"zaehlpunkt": "haushalt", "tarif_version": "2", "berechnung_version": 1, "von": h(1), "bis": h(0)}]
+    assert [x["tarif_version"] for x in views.neuberechnung_hinweise(gruppen, gueltige)] == ["1"]   # Version 1 ersetzt
+    gruppen.append({"zaehlpunkt": "haushalt", "tarif_version": "2", "berechnung_version": 2, "von": h(10), "bis": h(2)})
+    assert views.neuberechnung_hinweise(gruppen, gueltige) == []                                     # neu berechnet

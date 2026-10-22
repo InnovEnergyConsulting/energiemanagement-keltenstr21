@@ -45,6 +45,8 @@ class Writer:
                 item = convert.quality(msg, iso(utcnow()))
             elif kind == "raw":
                 item = convert.raw(msg)
+            elif kind == "kosten":
+                item = convert.kosten(msg)
             else:
                 return
         except (ValueError, KeyError, TypeError) as exc:
@@ -122,7 +124,7 @@ def run():
         log.info("Start mit %d gepufferten Zeilen", buffer.count())
     Bus("ems-writer", "writer", None,
         subscriptions=["ems/v1/telemetry/#", "ems/v1/state/#", "ems/v1/quality/#",
-                       "ems/v1/availability/#", "ems/v1/raw/#"],
+                       "ems/v1/availability/#", "ems/v1/raw/#", "ems/v1/kosten/#"],
         on_message=writer.handle).start()
     last_dropped = 0
     while True:
