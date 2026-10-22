@@ -134,6 +134,7 @@ services:
     volumes:
       - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data/caddy:/data
+      - ./data/download:/srv/download:ro              # Downloads über https://192.168.0.172:8444/download/
     depends_on: [grafana, leitstand]
     networks: [frontend]
 

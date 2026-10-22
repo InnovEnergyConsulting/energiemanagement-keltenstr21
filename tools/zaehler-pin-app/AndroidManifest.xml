@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Zähler-PIN: blinkt mit der Kamera-LED die PIN in den optischen Sensor eines Stromzählers (Iskra MT691).
+     setTorchMode braucht ab Android 6 keine Kamera-Berechtigung. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="de.keltenstr21.zaehlerpin">
+    <uses-feature android:name="android.hardware.camera.flash" android:required="true" />
+    <application android:label="Zähler-PIN" android:allowBackup="false"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity android:name=".MainActivity" android:exported="true" android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

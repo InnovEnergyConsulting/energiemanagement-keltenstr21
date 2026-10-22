@@ -39,7 +39,14 @@ https://192.168.0.172:8443 {
 # Leitstand – eigener Port, damit Grafana (8443) unverändert parallel läuft
 https://192.168.0.172:8444 {
 	tls internal
-	reverse_proxy leitstand:8080
+	# Downloads (z. B. Zähler-PIN-App fürs Handy), nur lesend aus data/download
+	handle_path /download/* {
+		root * /srv/download
+		file_server
+	}
+	handle {
+		reverse_proxy leitstand:8080
+	}
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options nosniff
