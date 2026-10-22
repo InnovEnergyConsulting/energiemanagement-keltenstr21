@@ -161,3 +161,15 @@ Anmeldung** vor (Passwort über Caddy, nur für `/einstellungen` und die zugehö
    Arbeitspreis)?
 3. **Wasser:** Arbeitspreis ct/m³, Grundpreis, Abwasser ct/m³ (falls über den Wasserverbrauch abgerechnet).
 4. **Anmeldung für Einstellungen:** einverstanden?
+
+---
+
+## 10. Angaben des Nutzers (22.10.2026)
+
+| Zählpunkt | Arbeitspreis | Grundpreis | gültig ab | Bemerkung |
+|---|---|---|---|---|
+| Haushaltsstrom | **33 ct/kWh** | offen | offen | |
+| WP-Strom | **noch unbekannt** | offen | offen | Vorschlag: vorläufig 33 ct/kWh, als „vorläufig“ markiert; bei Bekanntwerden Korrekturversion + Neuberechnung |
+| Wasser | **32 ct/m³** (Angabe so übernommen – bitte bestätigen, üblich sind 2–4 €/m³) | offen | offen | Zähler noch nicht eingebunden |
+
+**Anmeldung für „Einstellungen“:** vom Nutzer abgelehnt (22.10.2026) – Einstellungen ohne Login, wie der übrige Leitstand; Schutz nur über Herkunftsprüfung (JSON, gleiche Origin) und Änderungsjournal.
