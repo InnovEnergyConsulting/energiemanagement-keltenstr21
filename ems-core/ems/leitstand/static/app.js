@@ -48,6 +48,10 @@
   // ------------------------------------------------------------------ Liniendiagramm (SVG)
   // Reihen mit "stufig" (Fühler senden nur bei Änderung) werden als Stufen gezeichnet und bis zu halten_s
   // fortgesetzt – auch vom letzten Wert vor Beginn der Spanne bis jetzt. Längere Pausen bleiben als Lücke sichtbar.
+  /** Einheit oben an der Y-Achse (z. B. "W", "°C", "kWh"). */
+  function achsEinheit(unit, L) {
+    return unit ? '<text class="einheit" x="' + (L - 6) + '" y="11" text-anchor="end">' + esc(unit) + "</text>" : "";
+  }
   function niceStep(span, n) {
     var raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
     return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p;
@@ -106,7 +110,7 @@
   }
   function lineChart(el, series, opt) {
     opt = opt || {};
-    var W = 640, H = 230, L = 44, R = 10, T = 12, B = 24;
+    var W = 640, H = 230, L = 44, R = 10, T = 22, B = 24;
     var x0 = opt.from, x1 = opt.to, gap = opt.gapMs || 3 * 36e5, hold = opt.holdMs || 6 * 36e5;
     series.forEach(function (s) { s._segs = buildSegs(s, x0, x1, gap, hold); });
     var all = [];
@@ -121,7 +125,7 @@
     y0 = Math.floor(y0 / step) * step; y1 = Math.ceil(y1 / step) * step;
     var sx = function (t) { return L + (t - x0) / Math.max(1, x1 - x0) * (W - L - R); };
     var sy = function (v) { return T + (y1 - v) / Math.max(1e-9, y1 - y0) * (H - T - B); };
-    var out = ['<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(opt.label || "Verlauf") + '">'];
+    var out = ['<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(opt.label || "Verlauf") + '">', achsEinheit(opt.unit, L)];
     for (var v = y0; v <= y1 + step / 2; v += step) {
       out.push('<line x1="' + L + '" x2="' + (W - R) + '" y1="' + sy(v) + '" y2="' + sy(v) + '" stroke="' + css("--line") + '"/>');
       out.push('<text x="' + (L - 6) + '" y="' + (sy(v) + 3) + '" text-anchor="end">' + num(v, step % 1 ? 1 : 0) + "</text>");
@@ -415,11 +419,11 @@
       return "<tr><td>" + (i === 0 ? "heute" : esc(fmtDate.format(new Date(t.datum + "T12:00:00")))) + '</td><td class="n">' + num(t.heizung, 1) + '</td><td class="n">' + num(t.warmwasser, 1) +
         '</td><td class="n">' + num(t.gesamt, 1) + '</td><td class="n">' + t.ladungen + '</td><td class="n">' + (t.abdeckung_pct == null ? "–" : lueck ? '<span class="tag hinweis">' + t.abdeckung_pct + " %</span>" : '<span class="dim">' + t.abdeckung_pct + " %</span>") + "</td></tr>";
     }).join("");
-    var W = 640, H = 230, L = 44, R = 10, T = 12, B = 24, n = Math.max(7, tage.length);
+    var W = 640, H = 230, L = 44, R = 10, T = 22, B = 24, n = Math.max(7, tage.length);
     var ymax = Math.max(1, Math.max.apply(null, tage.map(function (t) { return t.gesamt; })));
     var step = niceStep(ymax, 4); ymax = Math.ceil(ymax / step) * step;
     var bw = (W - L - R) / n, sy = function (v) { return T + (ymax - v) / ymax * (H - T - B); };
-    var out = ['<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="WP-Verbrauch je Tag">'];
+    var out = ['<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="WP-Verbrauch je Tag">', achsEinheit("kWh", L)];
     for (var v = 0; v <= ymax + step / 2; v += step) {
       out.push('<line x1="' + L + '" x2="' + (W - R) + '" y1="' + sy(v) + '" y2="' + sy(v) + '" stroke="' + css("--line") + '"/>');
       out.push('<text x="' + (L - 6) + '" y="' + (sy(v) + 3) + '" text-anchor="end">' + num(v, step % 1 ? 1 : 0) + "</text>");
@@ -529,12 +533,12 @@
   }
   function barChart(el, bars, opt) {
     if (!bars.length) { el.innerHTML = '<div class="empty">' + esc(opt.leer) + "</div>"; return; }
-    var W = 640, H = 230, L = 44, R = 10, T = 12, B = 24, x0 = opt.from, x1 = opt.to;
+    var W = 640, H = 230, L = 44, R = 10, T = 22, B = 24, x0 = opt.from, x1 = opt.to;
     var ymax = Math.max(opt.minMax || 1, Math.max.apply(null, bars.map(function (b) { return b[2]; })));
     var step = niceStep(ymax, 4); ymax = Math.ceil(ymax / step) * step;
     var sx = function (t) { return L + (t - x0) / Math.max(1, x1 - x0) * (W - L - R); };
     var sy = function (v) { return T + (ymax - v) / ymax * (H - T - B); };
-    var out = ['<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(opt.label) + '">'];
+    var out = ['<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(opt.label) + '">', achsEinheit(opt.unit || "kWh", L)];
     for (var v = 0; v <= ymax + step / 2; v += step) {
       out.push('<line x1="' + L + '" x2="' + (W - R) + '" y1="' + sy(v) + '" y2="' + sy(v) + '" stroke="' + css("--line") + '"/>');
       out.push('<text x="' + (L - 6) + '" y="' + (sy(v) + 3) + '" text-anchor="end">' + num(v, step % 1 ? 1 : 0) + "</text>");

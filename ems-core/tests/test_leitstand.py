@@ -238,3 +238,26 @@ def test_kosten_summe_newest_version_and_hints():
     assert [x["tarif_version"] for x in views.neuberechnung_hinweise(gruppen, gueltige)] == ["1"]   # Version 1 ersetzt
     gruppen.append({"zaehlpunkt": "haushalt", "tarif_version": "2", "berechnung_version": 2, "von": h(10), "bis": h(2)})
     assert views.neuberechnung_hinweise(gruppen, gueltige) == []                                     # neu berechnet
+
+
+def test_short_outages_ignored_and_reconfirm_erledigt(tmp_path):
+    from ems.leitstand.queries import ausfaelle_filtern
+    from ems.leitstand import meldungen as ml
+    t = lambda s: NOW + timedelta(seconds=s)
+    ev = [{"time": t(0), "source": "controme", "status": "offline", "reason": "connection lost"},
+          {"time": t(20), "source": "controme", "status": "online", "reason": ""},          # Neustart: 20 s
+          {"time": t(100), "source": "eebus", "status": "offline", "reason": "VR 940 aus"},
+          {"time": t(900), "source": "eebus", "status": "online", "reason": ""},            # echter Ausfall: 13 min
+          {"time": t(1000), "source": "wattwaechter", "status": "offline", "reason": "LWT"}] # noch offline
+    assert [e["source"] for e in ausfaelle_filtern(ev, 120)] == ["eebus", "wattwaechter"]
+    # erledigt -> wieder aufgetreten -> erneut erledigt
+    ab = ml.Ablage(tmp_path / "m.sqlite")
+    g = ml.gruppieren([], [ev[2]])
+    key = next(iter(g))
+    ab.aendern(key, {"status": "erledigt"}, {}, "t")
+    g[key]["zuletzt"] = datetime.now(timezone.utc) + timedelta(seconds=5)
+    assert ml.bewerten(g[key], ab.alle()[key])["status"] == "offen"                      # wieder aufgetreten
+    import time; time.sleep(0.01)
+    g[key]["zuletzt"] = datetime.now(timezone.utc)
+    ab.aendern(key, {"status": "erledigt"}, {}, "t")                                     # erneut bestätigt
+    assert ml.bewerten(g[key], ab.alle()[key])["status"] == "erledigt"

@@ -42,6 +42,18 @@ def raum_filter(asset_id: str) -> str:
             f'or r.quantity == "relative_humidity" or r.quantity == "valve_position")) or (r.room_asset_id == "{asset_id}" and r.role == "return_flow")')
 
 
+def ausfaelle_filtern(events: list[dict], mindestdauer_s: int) -> list[dict]:
+    """Offline-Meldungen behalten, auf die nicht binnen mindestdauer_s ein "online" derselben Komponente folgt."""
+    out = []
+    for i, e in enumerate(events):
+        if e["status"] != "offline":
+            continue
+        wieder = next((n for n in events[i + 1:] if n["source"] == e["source"] and n["status"] == "online"), None)
+        if wieder is None or (wieder["time"] - e["time"]).total_seconds() > mindestdauer_s:
+            out.append(e)
+    return out
+
+
 def _t(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -195,15 +207,16 @@ class Influx:
   |> group(columns: ["asset_id"]) |> mean()'''
         return {r.values["asset_id"]: r.get_value() for r in self._records(flux)}
 
-    def ausfaelle(self, since: str = "-7d") -> list[dict]:
-        """Verbindungsabbrüche der Adapter (availability mit Status offline)."""
+    def ausfaelle(self, since: str = "-7d", mindestdauer_s: int = 120) -> list[dict]:
+        """Verbindungsabbrüche der Adapter (availability "offline"). Unterbrechungen, nach denen der Adapter innerhalb
+        von `mindestdauer_s` wieder "online" meldet (Neustart, kurzer WLAN-Aussetzer), zählen nicht als Abbruch."""
         flux = f'''from(bucket: "ems_events") |> range(start: {since})
   |> filter(fn: (r) => r._measurement == "availability" and (r._field == "status" or r._field == "reason"))
   |> pivot(rowKey: ["_time", "component"], columnKey: ["_field"], valueColumn: "_value")
-  |> filter(fn: (r) => r.status == "offline")
   |> group() |> sort(columns: ["_time"])'''
-        return [{"time": r.get_time(), "source": r.values.get("component"), "status": r.values.get("status"),
-                 "reason": r.values.get("reason")} for r in self._records(flux)]
+        events = [{"time": r.get_time(), "source": r.values.get("component"), "status": r.values.get("status"),
+                   "reason": r.values.get("reason")} for r in self._records(flux)]
+        return ausfaelle_filtern(events, mindestdauer_s)
 
     def series(self, flt: str, spanne: str, fn: str = "mean") -> dict:
         secs, every = SPANNEN[spanne]

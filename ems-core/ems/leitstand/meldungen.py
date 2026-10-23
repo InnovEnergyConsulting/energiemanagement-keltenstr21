@@ -134,8 +134,10 @@ class Ablage:
                 self.db.execute("INSERT INTO meldung (key, text, quelle) VALUES (?, ?, ?)",
                                 (key, meta.get("text", ""), meta.get("quelle", "")))
             for feld, neu in aenderung.items():
-                if alt.get(feld) == neu:
+                if alt.get(feld) == neu and not (feld == "status" and neu == "erledigt"):
                     continue
+                # "erledigt" erneut bestätigen (nach Wiederauftreten): Zeitpunkt neu setzen, sonst bliebe die
+                # Meldung angezeigt "offen", obwohl gespeichert schon "erledigt" steht (Fehler bis 23.10.2026)
                 if feld == "status":
                     self.db.execute("UPDATE meldung SET status=?, status_seit=? WHERE key=?", (neu, now, key))
                 else:
