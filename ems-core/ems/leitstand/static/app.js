@@ -395,15 +395,19 @@
     if (!e) { $("wp-energie").innerHTML = kpi("unbekannt", "WP-Verbrauch", "–", "noch keine Leistungswerte"); $("wp-chart-tage").innerHTML = ""; return; }
     function k(lab, x, seit) {
       var lueck = x.abdeckung_pct != null && x.abdeckung_pct < 95;
-      var ko = kosten && kosten[{ "Verbrauch heute": "heute", "Verbrauch dieser Monat": "monat", "Verbrauch dieses Jahr": "jahr" }[lab]];
+      var ko = kosten && kosten[{ "heute": "heute", "gestern": "gestern", "letzte 7 Tage": "woche", "dieser Monat": "monat", "dieses Jahr": "jahr" }[lab]];
       var anteil = ko && ko.menge ? ko.eur_arbeit / ko.menge : null;   // €/kWh aus den gespeicherten Kosten
       return kpi(lueck ? "hinweis" : "", lab, num(x.gesamt, 1) + " <small>kWh</small>" + (ko && ko.menge ? " <small>· " + euro(ko.eur) + "</small>" : ""),
-        "Heizung " + num(x.heizung, 1) + (anteil != null ? " (" + euro(x.heizung * anteil) + ")" : "") + " · Warmwasser " + num(x.warmwasser, 1) + (anteil != null ? " (" + euro(x.warmwasser * anteil) + ")" : "") +
+        "Heizung ≈ " + num(x.heizung, 1) + (anteil != null ? " (" + euro(x.heizung * anteil) + ")" : "") + " · Warmwasser ≈ " + num(x.warmwasser, 1) + (anteil != null ? " (" + euro(x.warmwasser * anteil) + ")" : "") +
         (ko && ko.vorlaeufig ? " · vorläufiger Preis" : "") + (lueck ? " · Daten nur für " + x.abdeckung_pct + " % der Zeit" : "") + (seit ? " · " + seit : ""),
-        x.ladungen + " Warmwasserladungen erkannt; Messabdeckung " + num(x.abdeckung_h, 1) + " von " + num(x.moeglich_h, 1) + " h. " + kostenTitel(ko));
+        "Aufteilung geschätzt (EEBUS liefert nur die Gesamtleistung): " + x.ladungen + " Warmwasserladungen erkannt; Messabdeckung " + num(x.abdeckung_h, 1) + " von " + num(x.moeglich_h, 1) + " h. " + kostenTitel(ko));
     }
     var first = new Date(e.seit), seit = "seit " + fmtDate.format(first);
-    $("wp-energie").innerHTML = k("Verbrauch heute", e.heute) + k("Verbrauch dieser Monat", e.monat, e.monat.moeglich_h < 24 * 28 ? seit : "") + k("Verbrauch dieses Jahr", e.jahr, seit);
+    var tag = function (iso) { return fmtDate.format(new Date(iso + "T12:00:00")); };
+    $("wp-energie").innerHTML = k("heute", e.heute) +
+      (e.gestern ? k("gestern", e.gestern) : kpi("unbekannt", "gestern", "–", "keine Daten")) +
+      (e.woche && e.woche.moeglich_h ? k("letzte 7 Tage", e.woche, tag(e.woche_von) + "–" + tag(e.woche_bis) + (e.woche.moeglich_h < 24 * 7 - 1 ? ", Daten " + seit : "")) : kpi("unbekannt", "letzte 7 Tage", "–", "keine Daten")) +
+      k("dieser Monat", e.monat, e.monat.moeglich_h < 24 * 28 ? seit : "") + k("dieses Jahr", e.jahr, seit);
     var tage = e.tage, el = $("wp-chart-tage");
     if (!tage.length) { el.innerHTML = '<div class="empty">Noch keine Tageswerte</div>'; return; }
     $("wp-tage-tab").innerHTML = tage.slice().reverse().slice(0, 10).map(function (t, i) {

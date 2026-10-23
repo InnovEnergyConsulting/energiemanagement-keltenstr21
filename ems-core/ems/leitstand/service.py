@@ -84,13 +84,17 @@ class Leitstand:
         tz = ZoneInfo("Europe/Berlin")
         local = now.astimezone(tz)
         mitternacht = local.replace(hour=0, minute=0, second=0, microsecond=0)
-        start = {"heute": mitternacht, "monat": mitternacht.replace(day=1), "jahr": mitternacht.replace(month=1, day=1)}
+        zeitraeume = {"heute": (mitternacht, now), "gestern": (mitternacht - timedelta(days=1), mitternacht),
+                      "woche": (mitternacht - timedelta(days=7), mitternacht),
+                      "monat": (mitternacht.replace(day=1), now), "jahr": (mitternacht.replace(month=1, day=1), now)}
+        ab = min(a for a, _ in zeitraeume.values())
         stunden = self._cached(f"kosten|{zp}", lambda: self.influx.kosten_stunden(
-            zp, start["jahr"].astimezone(timezone.utc), now + timedelta(hours=1)), ttl=60)
+            zp, ab.astimezone(timezone.utc), now + timedelta(hours=1)), ttl=60)
         out = {}
-        for k, a in start.items():
-            s_ = views.kosten_summe(stunden, a.astimezone(timezone.utc), now)
-            s_["eur_grund"] = grundkosten(self.tarife, zp, a.astimezone(timezone.utc), now)
+        for k, (a, b) in zeitraeume.items():
+            a, b = a.astimezone(timezone.utc), b.astimezone(timezone.utc)
+            s_ = views.kosten_summe(stunden, a, b if b < now else now)
+            s_["eur_grund"] = grundkosten(self.tarife, zp, a, b)
             s_["eur"] = round(s_["eur_arbeit"] + s_["eur_grund"], 2)
             out[k] = s_
         aktuell = self.tarife.preis_zu(zp, now)
@@ -148,7 +152,7 @@ class Leitstand:
             return None
         tz = ZoneInfo("Europe/Berlin")
         today = now.astimezone(tz).date()
-        d = max(first.astimezone(tz).date(), date(today.year, 1, 1))
+        d = max(first.astimezone(tz).date(), min(date(today.year, 1, 1), today - timedelta(days=7)))
         tage = []
         while d <= today:
             tage.append(self._wp_tag(d, now, first))
@@ -159,8 +163,14 @@ class Leitstand:
             out = {k: round(sum(t[k] for t in sel), 3) for k in keys}
             out["abdeckung_pct"] = round(100 * out["abdeckung_h"] / out["moeglich_h"]) if out["moeglich_h"] else None
             return out
-        return {"heute": tage[-1], "monat": summe([t for t in tage if t["datum"][:7] == today.isoformat()[:7]]),
-                "jahr": summe(tage), "seit": first.isoformat(), "tage": tage[-30:]}
+        jahr_tage = [t for t in tage if t["datum"][:4] == str(today.year)]
+        gestern = (today - timedelta(days=1)).isoformat()
+        woche_ab = (today - timedelta(days=7)).isoformat()
+        return {"heute": tage[-1], "gestern": next((t for t in tage if t["datum"] == gestern), None),
+                "woche": summe([t for t in tage if woche_ab <= t["datum"] < today.isoformat()]),
+                "woche_von": woche_ab, "woche_bis": gestern,
+                "monat": summe([t for t in tage if t["datum"][:7] == today.isoformat()[:7]]),
+                "jahr": summe(jahr_tage), "seit": first.isoformat(), "tage": tage[-30:]}
 
     def lage(self) -> dict:
         now = utcnow()

@@ -422,7 +422,9 @@ def kosten_summe(stunden: list[dict], von: datetime, bis: datetime) -> dict:
     menge = eur = ohne_preis = 0.0
     geschaetzt = vorlaeufig = False
     for r in stunden:
-        if not (von < r["stunde"] <= bis + timedelta(hours=1)) or r["version"] != neueste[r["stunde"]]:
+        # Stundensumme trägt das Stundenende als Zeit; laufende Stunde (Ende nach "bis") zählt nur bei offenem Zeitraum
+        grenze = bis + timedelta(hours=1) if bis >= datetime.now(bis.tzinfo) - timedelta(minutes=1) else bis
+        if not (von < r["stunde"] <= grenze) or r["version"] != neueste[r["stunde"]]:
             continue
         if r["feld"] == "menge":
             menge += r["wert"]
