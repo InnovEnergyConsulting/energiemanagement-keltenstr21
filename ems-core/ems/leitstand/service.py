@@ -76,6 +76,9 @@ class Leitstand:
         est = views.power_from_steps(pts, datetime.fromtimestamp(totals["bis"] / 1000, timezone.utc))
         totals["schaetzung"] = [[int(a.timestamp() * 1000), int(b.timestamp() * 1000), w, ok]
                                 for a, b, w, ok in est["abschnitte"] if b.timestamp() * 1000 >= totals["von"]]
+        # Kosten je Stunde (beim Eintreffen berechnet) – Grundlage der €-Darstellung, mit Preisversion zum Tarif
+        bis = datetime.fromtimestamp(totals["bis"] / 1000, timezone.utc)
+        totals["kosten"] = views.kosten_je_stunde(self.influx.kosten_stunden("haushalt", von, bis + timedelta(hours=1)))
         return totals
 
     def kosten(self, zp: str, now: datetime) -> dict:

@@ -470,21 +470,24 @@
     var est = st.schaetzung || {}, le = est.letzter;
     if (p) h += kpi("", p.wert >= 0 ? "Netzbezug jetzt" : "Einspeisung jetzt", num(Math.abs(p.wert), 0) + " <small>W</small>", "vor " + ago(p.alter_s));
     else if (le) h += kpi(le.sicher ? "" : "unbekannt", "Ø-Leistung (geschätzt)", num(le.w, 0) + " <small>W</small>",
-      "1 kWh in " + le.minuten + " min, bis " + when(le.bis) + (est.obergrenze_w != null ? " · seitdem höchstens " + num(est.obergrenze_w, 0) + " W" : ""),
+      "1 kWh in " + le.minuten + " min, bis " + when(le.bis) + (est.obergrenze_w != null && est.obergrenze_w < le.w ? " · seitdem höchstens " + num(est.obergrenze_w, 0) + " W" : ""),
       "Aus der Zeit zwischen zwei kWh-Sprüngen des Zählerstands berechnet (ohne PIN keine Momentanleistung). Unschärfe ±10 s je Sprung.");
     else if (est.obergrenze_w != null) h += kpi("unbekannt", "Ø-Leistung (geschätzt)", "≤ " + num(est.obergrenze_w, 0) + " <small>W</small>", "seit letztem kWh-Sprung " + when(est.seit) + "; Schätzung ab dem 2. Sprung");
     else h += kpi("geplant", "Ø-Leistung (geschätzt)", "wartet auf kWh-Sprünge", "erscheint nach zwei Sprüngen des Zählerstands");
-    ["heute", "monat", "jahr"].forEach(function (k) {
-      var x = per[k], lab = { heute: "Bezug heute", monat: "Bezug dieser Monat", jahr: "Bezug dieses Jahr" }[k];
-      var ko = st.kosten && st.kosten[k];
-      h += x ? kpi("", lab, kwh(x.kwh) + " <small>kWh</small>", "seit " + when(x.seit) + kostenText(ko), kostenTitel(ko))
-        : kpi("unbekannt", lab, "–", "noch kein Zählerstand");
+    var kz = "";
+    ["heute", "gestern", "woche", "monat", "jahr"].forEach(function (k) {
+      var ko = st.kosten && st.kosten[k], lab = { heute: "Kosten heute", gestern: "Kosten gestern", woche: "Kosten letzte 7 Tage", monat: "Kosten dieser Monat", jahr: "Kosten dieses Jahr" }[k];
+      if (!ko || (!ko.menge && !ko.eur_grund)) { kz += kpi("unbekannt", lab, "–", "noch keine Daten"); return; }
+      kz += kpi(ko.vorlaeufig ? "hinweis" : "", lab, euro(ko.eur).replace(" €", " <small>€</small>"),
+        num(ko.menge, ko.menge >= 100 ? 0 : 1) + " kWh · Ø " + (ko.ct_mittel == null ? "–" : num(ko.ct_mittel, 2) + " ct/kWh") + (ko.eur_grund ? " · inkl. Grundpreis " + euro(ko.eur_grund) : ""),
+        kostenTitel(ko));
     });
     h += b ? kpi("", "Zählerstand Bezug (1.8.0)", num(b.wert, b.wert % 1 ? 1 : 0) + " <small>kWh</small>", "vor " + ago(b.alter_s))
       : kpi("unbekannt", "Zählerstand Bezug (1.8.0)", "–", "noch kein Telegramm");
     var e = st.einspeisung;
     h += kpi(e ? "" : "unbekannt", "Zählerstand Einspeisung (2.8.0)", e ? num(e.wert, e.wert % 1 ? 1 : 0) + " <small>kWh</small>" : "–", e ? "vor " + ago(e.alter_s) : "noch keine PV");
     $("strom-kpis").innerHTML = h;
+    $("strom-kosten").innerHTML = kz;
 
     var ph = st.phasen, any = ["l1", "l2", "l3"].some(function (k) { return ph[k].leistung || ph[k].strom || ph[k].spannung; });
     if (!any) {
@@ -546,11 +549,25 @@
     timeTicks(x0, x1).forEach(function (tk) { out.push('<text x="' + sx(tk[0]) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(tk[1]) + "</text>"); });
     bars.forEach(function (b) {
       var xa = Math.max(L, sx(b[0])), xb = Math.min(W - R, sx(b[1])), w = Math.max(1, xb - xa - 2);
-      out.push('<rect x="' + (xa + 1).toFixed(1) + '" y="' + sy(b[2]).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + (sy(0) - sy(b[2])).toFixed(1) + '" fill="' + (b[3] ? css("--chart-muted") : css("--chart")) + '"><title>' +
-        esc(fmtDateTime.format(new Date(b[0])) + ": " + num(b[2], 2) + " kWh" + (b[3] ? " (angefangen)" : "")) + "</title></rect>");
+      var info = b[4] || {};
+      out.push('<rect' + (info.zp ? ' data-zp="' + info.zp + '" style="cursor:pointer"' : "") + ' x="' + (xa + 1).toFixed(1) + '" y="' + sy(b[2]).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + (sy(0) - sy(b[2])).toFixed(1) + '" fill="' + (b[3] ? css("--chart-muted") : css("--chart")) + '"><title>' +
+        esc(info.tip || (fmtDateTime.format(new Date(b[0])) + ": " + num(b[2], 2) + " " + (opt.unit || "kWh") + (b[3] ? " (angefangen)" : ""))) + "</title></rect>");
     });
     out.push("</svg>");
     el.innerHTML = out.join("");
+    if (opt.onClick) [].forEach.call(el.querySelectorAll("rect[data-zp]"), function (r) { r.addEventListener("click", function () { opt.onClick(r.getAttribute("data-zp")); }); });
+  }
+  function tarifText(zp, ids) {   // Preisversionen -> "Haushaltsstrom 33,00 ct ab 21.10.2026 (vorläufig)"
+    if (!tarifDaten || !tarifDaten.zaehlpunkte[zp]) return "";
+    var z = tarifDaten.zaehlpunkte[zp];
+    return (ids || []).map(function (id) {
+      var v = z.versionen.filter(function (x) { return String(x.id) === String(id); })[0];
+      return v ? z.name + " " + num(v.arbeitspreis_ct, 2) + " ct ab " + fmtDate.format(new Date(v.gueltig_ab)) + (v.vorlaeufig ? " (vorläufig)" : "") + (v.ersetzt_durch ? " – inzwischen ersetzt" : "") : "Preisversion " + id;
+    }).join("; ");
+  }
+  function zuTarif(zp) {           // Klick auf einen Balken: Tarif in „Einstellungen“ zeigen
+    state.tarifFokus = zp;
+    show("einstellungen", true);
   }
   function renderStromCharts() {
     var v = state.verlauf["strom|" + state.spanne.strom];
@@ -567,7 +584,22 @@
         bars.push([b0, b0 + (day ? 864e5 : 36e5), Math.max(0, last[b0] - last[order[i - 1]]), b0 + (day ? 864e5 : 36e5) > v.bis]);
       }
     }
-    $("strom-bar-titel").textContent = "Netzbezug je " + (day ? "Tag" : "Stunde");
+    var eur = (store("ems-strom-modus") || "eur") === "eur";
+    [].forEach.call(document.querySelectorAll("#strom-modus .seg"), function (b) { b.setAttribute("aria-pressed", (b.getAttribute("data-m") === "eur") === eur); });
+    if (eur) {   // Kosten je Stunde/Tag aus den beim Eintreffen berechneten Werten
+      var acc = {};
+      (v.kosten || []).forEach(function (k) {
+        var b0 = bucketStart(k[0] - 1, day), a = acc[b0] = acc[b0] || { m: 0, e: 0, tv: {} };
+        a.m += k[1]; a.e += k[2]; k[3].forEach(function (t) { a.tv[t] = 1; });
+      });
+      bars = Object.keys(acc).map(Number).sort(function (a, b) { return a - b; }).map(function (b0) {
+        var a = acc[b0], b1 = b0 + (day ? 864e5 : 36e5), laufend = b1 > v.bis;
+        var zeit = day ? fmtDate.format(new Date(b0)) : fmtDateTime.format(new Date(b0)) + "–" + fmtTime.format(new Date(b1));
+        return [b0, b1, a.e, laufend, { zp: "haushalt", tip: zeit + ": " + num(a.e, 2) + " € = " + num(a.m, 1) + " kWh × Ø " + (a.m ? num(100 * a.e / a.m, 2) : "–") + " ct" +
+          (laufend ? " (laufend)" : "") + "\nTarif: " + (tarifText("haushalt", Object.keys(a.tv)) || "kein Preis hinterlegt") + "\nKlick: Tarif in „Einstellungen“ anzeigen" }];
+      });
+    }
+    $("strom-bar-titel").textContent = (eur ? "Stromkosten je " : "Netzbezug je ") + (day ? "Tag" : "Stunde");
     $("strom-hinweis").textContent = "– Verbrauch aus Zählerdifferenzen" + (e && e.punkte.length && e.punkte.every(function (p) { return p[1] % 1 === 0; }) ? "; ohne PIN nur ganze kWh, Stundenwerte daher grob" : "");
     var leer = "Noch keine Zählerstände im gewählten Zeitraum";
     if (e && e.punkte.length) {
@@ -575,8 +607,13 @@
       leer = p1[1] > p0[1] ? "Noch kein abgeschlossener " + (day ? "Tag" : "Stundenwert") + " – Zuwachs bisher " + num(p1[1] - p0[1], 0) + " kWh"
         : "Zählerstand seit " + when(new Date(p0[0]).toISOString()) + " unverändert bei " + num(p1[1], 0) + " kWh (Verbrauch < 1 kWh – ohne PIN nur ganze kWh)";
     }
-    barChart($("strom-chart-bars"), bars, { from: v.von, to: v.bis, label: "Netzbezug", minMax: 1, leer: leer });
-    legend($("strom-legend-bars"), bars.length ? [{ name: "kWh je " + (day ? "Tag" : "Stunde"), color: css("--chart") }, { name: "laufender Zeitraum", muted: true }] : []);
+    barChart($("strom-chart-bars"), bars, { from: v.von, to: v.bis, label: eur ? "Stromkosten" : "Netzbezug", unit: eur ? "€" : "kWh",
+      minMax: eur ? 0.5 : 1, leer: eur ? "Noch keine Kosten im gewählten Zeitraum" : leer, onClick: zuTarif });
+    legend($("strom-legend-bars"), bars.length ? [{ name: (eur ? "€" : "kWh") + " je " + (day ? "Tag" : "Stunde"), color: css("--chart") }, { name: "laufender Zeitraum", muted: true }] : []);
+    var pr = state.lage && state.lage.strom.kosten && state.lage.strom.kosten.preis;
+    $("strom-tarif-hinweis").innerHTML = pr ? 'Preis: ' + num(pr.arbeitspreis_ct, 2) + " ct/kWh" + (pr.grundpreis_eur_monat ? " + " + num(pr.grundpreis_eur_monat, 2) + " €/Monat" : "") +
+      " seit " + esc(fmtDate.format(new Date(pr.gueltig_ab))) + ' · <a href="#einstellungen" data-tarif="haushalt">Tarif in „Einstellungen“</a> · Balken anklicken zeigt den zugehörigen Tarif'
+      : 'Kein Preis hinterlegt · <a href="#einstellungen" data-tarif="haushalt">Preis in „Einstellungen“ anlegen</a>';
     var pw = v.reihen.filter(function (s) { return s.quantity === "active_power"; })
       .map(function (s) { return { name: "Leistung (+ Bezug / − Einspeisung)", punkte: s.punkte, color: css("--chart"), area: true, width: 1.5 }; });
     var titel = "Leistung";
@@ -711,10 +748,14 @@
           "<td>" + (v.ersetzt_durch ? "" : '<button class="btn klein zweit" data-korr="' + v.id + '" data-zp="' + zp + '">Korrigieren</button>') + "</td></tr>" +
           (notiz ? '<tr class="' + (v.ersetzt_durch ? "ersetzt" : "") + '"><td colspan="5" class="wrap-text dim notiz">' + esc(notiz) + "</td></tr>" : "");
       }).join("") || '<tr><td colspan="5" class="dim">noch kein Preis hinterlegt</td></tr>';
-      return '<div class="card"><h3>' + esc(z.name) + " <small>" + esc(z.einheit) + "</small></h3>" + '<div class="zp-meta">' + esc(z.messung) + "</div>" +
+      return '<div class="card' + (state.tarifFokus === zp ? " fokus" : "") + '" id="tarif-' + zp + '"><h3>' + esc(z.name) + " <small>" + esc(z.einheit) + "</small></h3>" + '<div class="zp-meta">' + esc(z.messung) + "</div>" +
         '<div class="scroll"><table><thead><tr><th>gültig ab</th><th class="n">ct/' + esc(z.einheit) + '</th><th class="n">€/Monat</th><th>Status</th><th></th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
         '<button class="btn klein mt" data-neu="' + zp + '">Neuer Preis ab …</button></div>';
     }).join("");
+    if (state.tarifFokus && $("tarif-" + state.tarifFokus)) {
+      var fk = $("tarif-" + state.tarifFokus); state.tarifFokus = null;
+      setTimeout(function () { fk.scrollIntoView({ block: "center" }); setTimeout(function () { fk.classList.remove("fokus"); }, 4000); }, 50);
+    }
     $("tarif-journal").innerHTML = d.journal.map(function (j) {
       var x = {}; try { x = JSON.parse(j.daten); } catch (e) {}
       return '<tr><td class="n">' + esc(when(j.zeit)) + "</td><td>" + esc(j.aktion) + "</td><td>" + esc(zpName(x.zaehlpunkt)) + '</td><td class="n">' + esc(x.gueltig_ab ? fmtDateTime.format(new Date(x.gueltig_ab)) : "–") +
@@ -757,6 +798,15 @@
       .catch(function (err) { btn.disabled = false; $("tarif-msg").textContent = "Fehler: " + err.message; });
   });
   $("tarif-zu").addEventListener("click", function () { $("tarif-dlg").close(); });
+
+  $("strom-modus").addEventListener("click", function (e) {
+    var m = e.target.getAttribute && e.target.getAttribute("data-m"); if (!m) return;
+    store("ems-strom-modus", m); renderStromCharts();
+  });
+  $("strom-tarif-hinweis").addEventListener("click", function (e) {
+    var a = e.target.closest("a[data-tarif]"); if (!a) return;
+    e.preventDefault(); zuTarif(a.getAttribute("data-tarif"));
+  });
 
   // ------------------------------------------------------------------ Reiter Shelly
   function renderShelly(sh) {
@@ -856,6 +906,7 @@
   show($("p-" + start) ? start : "fb");
   var MIT_VERLAUF = { fb: 1, wp: 1, strom: 1 };
   loadLage().then(function () { loadVerlauf(MIT_VERLAUF[state.tab] ? state.tab : "fb"); });
+  if (state.tab !== "einstellungen") loadTarife();   // Tarifnamen für die Kosten-Tooltips
   setInterval(function () { loadLage(); if (!$("meld-dlg").open) loadMeldungen(TAB_QUELLE[state.tab]); }, LAGE_MS);
   setInterval(function () {
     if (MIT_VERLAUF[state.tab]) loadVerlauf(state.tab);

@@ -83,12 +83,15 @@
 
   <!-- Reiter 3: Strom (Hauptzähler über WattWächter) -->
   <section class="pane" role="tabpanel" id="p-strom" aria-labelledby="t-strom" hidden>
+    <div><div class="lvl">Kosten <span>– beim Eintreffen mit dem jeweils gültigen Preis berechnet (Tarif im Reiter „Einstellungen“); Hauptzähler enthält derzeit auch die Wärmepumpe</span></div><div class="kpis kompakt" id="strom-kosten"></div></div>
     <div><div class="lvl">Lage <span>– Hausanschluss (Hauptzähler Iskra MT691 über WattWächter)</span></div><div class="kpis" id="strom-kpis"></div></div>
     <div><div class="lvl">Phasen <span>– Last je Außenleiter, sichtbar nach PIN-Freischaltung am Zähler</span></div><div id="strom-phasen"></div></div>
     <div>
       <div class="lvl">Verlauf <span id="strom-hinweis"></span><div class="tools" data-range="strom"></div></div>
       <div class="grid2">
-        <div class="card"><h3 id="strom-bar-titel">Netzbezug</h3><div class="chart" id="strom-chart-bars"></div><div class="legend" id="strom-legend-bars"></div></div>
+        <div class="card"><h3><span id="strom-bar-titel">Netzbezug</span><span class="tools" id="strom-modus" role="group" aria-label="Darstellung">
+          <button class="seg" data-m="eur" aria-pressed="true">€</button><button class="seg" data-m="kwh" aria-pressed="false">kWh</button></span></h3>
+          <div class="chart" id="strom-chart-bars"></div><div class="legend" id="strom-legend-bars"></div><div class="zp-meta" id="strom-tarif-hinweis"></div></div>
         <div class="card"><h3>Leistung</h3><div class="chart" id="strom-chart-power"></div><div class="legend" id="strom-legend-power"></div></div>
       </div>
     </div>

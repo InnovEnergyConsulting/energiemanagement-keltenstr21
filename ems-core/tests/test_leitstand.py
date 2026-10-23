@@ -261,3 +261,13 @@ def test_short_outages_ignored_and_reconfirm_erledigt(tmp_path):
     g[key]["zuletzt"] = datetime.now(timezone.utc)
     ab.aendern(key, {"status": "erledigt"}, {}, "t")                                     # erneut bestätigt
     assert ml.bewerten(g[key], ab.alle()[key])["status"] == "erledigt"
+
+
+def test_kosten_je_stunde():
+    h = lambda hours: NOW - timedelta(hours=hours)
+    rows = [{"stunde": h(1), "version": 1, "herkunft": "gemessen", "vorlaeufig": False, "tarif_version": "1", "feld": "menge", "wert": 2.0},
+            {"stunde": h(1), "version": 1, "herkunft": "gemessen", "vorlaeufig": False, "tarif_version": "1", "feld": "kosten_eur", "wert": 0.66},
+            {"stunde": h(1), "version": 2, "herkunft": "gemessen", "vorlaeufig": False, "tarif_version": "3", "feld": "menge", "wert": 2.0},
+            {"stunde": h(1), "version": 2, "herkunft": "gemessen", "vorlaeufig": False, "tarif_version": "3", "feld": "kosten_eur", "wert": 0.70}]
+    (t, menge, eur, tv), = views.kosten_je_stunde(rows)
+    assert (menge, eur, tv) == (2.0, 0.7, ["3"])

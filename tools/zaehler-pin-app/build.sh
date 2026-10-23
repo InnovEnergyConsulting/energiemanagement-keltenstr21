@@ -14,7 +14,7 @@ fi
 command -v zip >/dev/null || (apt-get update -qq && apt-get install -y -qq zip >/dev/null)
 cd /app && rm -rf build && mkdir -p build/classes build/dex out
 $BT/aapt2 link -o build/base.apk -I $JAR --manifest AndroidManifest.xml \
-  --min-sdk-version 23 --target-sdk-version 34 --version-code 3 --version-name 1.2
+  --min-sdk-version 23 --target-sdk-version 34 --version-code 4 --version-name 1.3
 javac -source 11 -target 11 -encoding UTF-8 -classpath $JAR -d build/classes $(find src -name '*.java') 2>&1 | grep -v "bootstrap classpath" || true
 $BT/d8 --release --min-api 23 --lib $JAR --output build/dex $(find build/classes -name '*.class')
 (cd build/dex && zip -q -u ../base.apk classes.dex)

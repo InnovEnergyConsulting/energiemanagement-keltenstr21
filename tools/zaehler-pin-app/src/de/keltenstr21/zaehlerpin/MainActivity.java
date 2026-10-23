@@ -32,6 +32,7 @@ public class MainActivity extends Activity {
             {"pauseZiffer", "Pause bis zur nächsten PIN-Stelle (ms, > 3000)", "4000", "3200", "15000"},
             {"lang", "Langer Impuls – Licht an (ms, > 5000)", "6500", "5200", "15000"},
             {"displaytest", "Nach Weckimpuls: Displaytest abwarten (ms)", "4000", "500", "15000"},
+            {"einstiegImpulse", "Einstiegsimpulse nach dem Displaytest (0 = Zähler öffnet die PIN-Abfrage selbst, 1 = ein Impuls)", "0", "0", "1"},
             {"einstieg", "Nach Einstiegsimpuls warten (ms)", "1500", "300", "2800"},
             {"start", "Startverzögerung zum Ausrichten (ms)", "3000", "0", "15000"},
             {"nKurz", "Anzahl für „N × kurz“ (z. B. 13 bis „InF“)", "13", "1", "40"},
@@ -149,7 +150,7 @@ public class MainActivity extends Activity {
         root.addView(gefText);
         root.addView(knopf("Nur PIN eingeben", v -> starte("pin"), dp));
         TextView ablauf = new TextView(this);
-        ablauf.setText("Ablauf: Weckimpuls → Displaytest → Einstiegsimpuls → je Ziffer n kurze Impulse (0 = keiner) → "
+        ablauf.setText("Ablauf: Weckimpuls → Displaytest (Zähler zeigt „-0----“) → [optional Einstiegsimpuls] → je Ziffer n kurze Impulse (0 = keiner) → "
                 + "Pause → nächste Ziffer. Danach im Display prüfen, ob die PIN angenommen wurde.");
         ablauf.setTextSize(12);
         root.addView(ablauf);
@@ -297,9 +298,13 @@ public class MainActivity extends Activity {
         zeigeStatus("Weckimpuls …");
         impuls(wert("kurz"));
         warteMitAnzeige(wert("displaytest"), "Displaytest abwarten");
-        zeigeStatus("Einstiegsimpuls (PIN-Abfrage öffnen) …");
-        impuls(wert("kurz"));
-        warte(wert("einstieg"));
+        // Iskra MT691 (Keltenstr. 21, 23.10.2026): öffnet die PIN-Abfrage nach dem Displaytest selbst – ein weiterer
+        // Impuls würde als +1 an der ersten Stelle gezählt (9 -> 0). Deshalb einstellbar, Vorgabe 0.
+        if (wert("einstiegImpulse") > 0) {
+            zeigeStatus("Einstiegsimpuls (PIN-Abfrage öffnen) …");
+            impuls(wert("kurz"));
+            warte(wert("einstieg"));
+        }
         for (int i = 0; i < pin.length(); i++) {
             int ziffer = pin.charAt(i) - '0';
             for (int k = 1; k <= ziffer; k++) {

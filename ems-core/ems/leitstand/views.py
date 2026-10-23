@@ -462,3 +462,22 @@ def neuberechnung_hinweise(gruppen: list[dict], gueltige: dict[str, list[dict]])
             out.append({"zaehlpunkt": g["zaehlpunkt"], "von": g["von"].isoformat(), "bis": g["bis"].isoformat(),
                         "tarif_version": g["tarif_version"], "berechnung_version": g["berechnung_version"]})
     return out
+
+
+
+def kosten_je_stunde(stunden: list[dict]) -> list[list]:
+    """[Stundenende ms, Menge, € Arbeitspreis, [Preisversionen]] je Stunde, nur neueste Berechnungsversion."""
+    neueste, out = {}, {}
+    for r in stunden:
+        neueste[r["stunde"]] = max(neueste.get(r["stunde"], 0), r["version"])
+    for r in stunden:
+        if r["version"] != neueste[r["stunde"]]:
+            continue
+        e = out.setdefault(r["stunde"], [int(r["stunde"].timestamp() * 1000), 0.0, 0.0, set()])
+        if r["feld"] == "menge":
+            e[1] += r["wert"]
+        else:
+            e[2] += r["wert"]
+        if str(r["tarif_version"]) != "0":
+            e[3].add(str(r["tarif_version"]))
+    return [[t, round(m, 3), round(eur, 4), sorted(tv)] for t, m, eur, tv in sorted(out.values())]
