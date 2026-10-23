@@ -87,7 +87,7 @@ services:
     networks: [backend]
 
   grafana:
-    image: grafana/grafana:12.4.1
+    image: grafana/grafana:12.4.13
     container_name: ems-grafana
     restart: unless-stopped
     logging: *logging
@@ -123,7 +123,7 @@ services:
     networks: [backend, frontend]
 
   proxy:
-    image: caddy:2.10.2
+    image: caddy:2.11.7
     container_name: ems-proxy
     restart: unless-stopped
     logging: *logging
