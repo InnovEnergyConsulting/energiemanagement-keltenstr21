@@ -139,6 +139,7 @@ type adapter struct {
 	subscribed map[string]bool
 	availMu    sync.Mutex
 	lastStatus string // zuletzt gemeldeter Verfügbarkeitsstatus (Meldungen nur bei Änderung)
+	lastAvail  []byte // zuletzt gemeldete Verfügbarkeit, wird bei jeder (Neu-)Verbindung zum Broker erneut gesendet
 	connected  bool
 	changedAt  time.Time // letzter Wechsel verbunden/getrennt (für die Zeitüberwachung)
 }
@@ -210,10 +211,14 @@ func (a *adapter) publish(topic string, payload any, retain bool) {
 }
 
 func (a *adapter) availability(status, reason string) {
+	b, _ := json.Marshal(map[string]any{"status": status, "since": nowISO(), "reason": reason})
 	a.availMu.Lock()
 	a.lastStatus = status + "|" + reason
+	a.lastAvail = b
 	a.availMu.Unlock()
-	a.publish("ems/v1/availability/eebus", map[string]any{"status": status, "since": nowISO(), "reason": reason}, true)
+	if a.mq != nil && a.mq.IsConnected() {
+		a.mq.Publish("ems/v1/availability/eebus", 1, true, b)
+	}
 }
 
 // unreachable wird aus den Fehlermeldungen von ship-go abgeleitet ("connection to <ski> at ... failed: dial tcp ...").
@@ -517,7 +522,16 @@ func main() {
 	opts := mqtt.NewClientOptions().AddBroker(env("EMS_MQTT_URL", "tcp://192.168.0.172:1883")).
 		SetClientID("ems-eebus").SetUsername("eebus_adapter").SetPassword(strings.TrimSpace(string(pw))).
 		SetAutoReconnect(true).SetMaxReconnectInterval(2*time.Minute).SetConnectRetry(true).
-		SetWill("ems/v1/availability/eebus", `{"status":"offline","reason":"Adapter beendet"}`, 1, true)
+		SetWill("ems/v1/availability/eebus", `{"status":"offline","reason":"Adapter beendet"}`, 1, true).
+		// Meldungen vor dem Verbindungsaufbau (z. B. nach Docker-Neustart) gingen sonst verloren
+		SetOnConnectHandler(func(c mqtt.Client) {
+			a.availMu.Lock()
+			b := a.lastAvail
+			a.availMu.Unlock()
+			if b != nil {
+				c.Publish("ems/v1/availability/eebus", 1, true, b)
+			}
+		})
 	a.mq = mqtt.NewClient(opts)
 	a.mq.Connect()
 
