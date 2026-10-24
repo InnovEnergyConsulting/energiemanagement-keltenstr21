@@ -376,10 +376,9 @@
     h += a.wert ? kpi("", "Außentemperatur", num(a.wert.wert) + " <small>°C</small>", "Vaillant-Fühler · vor " + ago(a.wert.alter_s))
       : a.stoerung ? kpi("hinweis", "Außentemperatur", "Fühler meldet Fehler", "VR 940: valueState „error“ – noch nicht angeschlossen?")
       : kpi("unbekannt", "Außentemperatur", "–", "noch kein Wert");
-    var lpc = wp.lpc;
-    h += kpi(lpc.aktiv ? "hinweis" : "", "Leistungsbegrenzung § 14a", lpc.aktiv == null ? "–" : lpc.aktiv ? num(lpc.grenze_w, 0) + " <small>W</small>" : "nicht aktiv",
-      lpc.failsafe_dauer ? "Failsafe " + lpc.failsafe_dauer.replace(/^PT/, "").replace("H", " h").replace("M", " min") : "");
+    h += '<div id="wp-stoer" class="kpi unbekannt"></div>';
     $("wp-kpis").innerHTML = h;
+    renderStoerKpi();
 
     var v = wp.verbindung, chips = [];
     chips.push('<span class="chip' + (v.status === "online" ? "" : " hinweis") + '">EEBUS: <b>' + esc(v.status === "online" ? "verbunden" : v.status || "unbekannt") + "</b>" + (v.seit ? " seit " + esc(when(v.seit)) : "") + "</span>");
@@ -659,8 +658,36 @@
   }
   function loadMeldungen(quelle) {
     if (!quelle) return;
-    getJSON("api/meldungen?quelle=" + quelle).then(function (d) { meldCache[quelle] = d.meldungen; renderMeldungen(quelle); }).catch(function () {});
+    getJSON("api/meldungen?quelle=" + quelle).then(function (d) {
+      meldCache[quelle] = d.meldungen; renderMeldungen(quelle);
+      if (quelle === "eebus") renderStoerKpi();
+    }).catch(function () {});
   }
+  // Kachel „Offene Störungen“ (Reiter WP): alles, was nicht erledigt ist; Klick öffnet die Meldungsliste
+  function renderStoerKpi() {
+    var el = $("wp-stoer"); if (!el) return;
+    var rows = meldCache.eebus, h;
+    if (!rows) h = kpi("unbekannt", "Offene Störungen", "–", "lädt …");
+    else {
+      var offen = rows.filter(function (m) { return m.status !== "erledigt"; }),
+        krit = offen.filter(function (m) { return m.wichtigkeit === "kritisch"; }).length,
+        arbeit = offen.filter(function (m) { return m.status === "in_arbeit"; }).length;
+      h = kpi(krit ? "stoerung" : offen.length ? "hinweis" : "", "Offene Störungen", String(offen.length),
+        offen.length ? krit + " kritisch" + (arbeit ? " · " + arbeit + " in Arbeit" : "") + " · Liste öffnen" : rows.length + " Meldungen, alle erledigt · Liste öffnen");
+    }
+    el.outerHTML = h.replace('<div class="kpi ', '<div id="wp-stoer" role="button" tabindex="0" title="Meldungsliste öffnen" class="kpi klick ');
+  }
+  function openMeldListe() {
+    var d = $("meldliste-dlg");
+    if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute("open", ""); }
+    loadMeldungen("eebus");
+  }
+  $("wp-kpis").addEventListener("click", function (e) { if (e.target.closest("#wp-stoer")) openMeldListe(); });
+  $("wp-kpis").addEventListener("keydown", function (e) {
+    if (e.target.id === "wp-stoer" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openMeldListe(); }
+  });
+  $("meldliste-zu").addEventListener("click", function () { var d = $("meldliste-dlg"); if (d.close) d.close(); else d.removeAttribute("open"); });
+  $("meldliste-dlg").addEventListener("click", function (e) { if (e.target === $("meldliste-dlg")) $("meldliste-dlg").close(); });
   function postMeldung(body) {
     return fetch("api/meldung", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
       .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.fehler || "HTTP " + r.status); return j; }); });

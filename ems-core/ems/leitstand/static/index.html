@@ -76,9 +76,6 @@
         <div class="card"><h3>Temperaturen</h3><div class="chart" id="wp-chart-temp"></div><div class="legend" id="wp-legend-temp"></div></div>
       </div>
     </div>
-    <div class="card" data-meldungen="eebus"><h3>Meldungen <small>Wärmepumpe (EEBUS) · letzte 7 Tage, gleiche zusammengefasst · Zeile anklicken für Details</small></h3><div class="scroll"><table class="meld">
-      <thead><tr><th>zuletzt</th><th>Status</th><th>Wichtigkeit</th><th>Meldung</th><th class="n">Anzahl</th><th class="n">erstmals</th></tr></thead>
-      <tbody><tr><td colspan="6" class="dim">lädt …</td></tr></tbody></table></div></div>
   </section>
 
   <!-- Reiter 3: Strom (Hauptzähler über WattWächter) -->
@@ -145,6 +142,17 @@
         <div class="card"><h3>Ventilöffnung <small>0 % = zu, 100 % = offen; mehrere Ventile gemittelt</small></h3><div class="chart" id="raum-chart-ventil"></div><div class="legend" id="raum-legend-ventil"></div></div>
       </div>
     </div>
+  </dialog>
+
+  <!-- Meldungsliste Wärmepumpe (Kachel „Offene Störungen“) -->
+  <dialog id="meldliste-dlg" aria-labelledby="meldliste-titel">
+    <div class="dlg-head">
+      <div><h2 id="meldliste-titel">Meldungen Wärmepumpe</h2><small>EEBUS · letzte 7 Tage, gleiche zusammengefasst · Zeile anklicken für Details</small></div>
+      <button class="close" id="meldliste-zu" aria-label="Schließen" title="Schließen (Esc)">×</button>
+    </div>
+    <div class="dlg-body"><div class="card" data-meldungen="eebus"><div class="scroll"><table class="meld">
+      <thead><tr><th>zuletzt</th><th>Status</th><th>Wichtigkeit</th><th>Meldung</th><th class="n">Anzahl</th><th class="n">erstmals</th></tr></thead>
+      <tbody><tr><td colspan="6" class="dim">lädt …</td></tr></tbody></table></div></div></div>
   </dialog>
 
   <!-- Meldung-Detailfenster -->

@@ -86,6 +86,10 @@ a{color:var(--accent)}
 .kpis.kompakt .kpi .s{font-size:11px;line-height:1.35}
 .kpi.hinweis{border-left-color:var(--warn);background:var(--warn-soft)}
 .kpi.stoerung{border-left-color:var(--alarm);background:var(--alarm-soft)}
+.kpi.klick{cursor:pointer}
+.kpi.klick:hover{outline:2px solid var(--line);outline-offset:-2px}
+.kpi.klick:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.kpi.klick .s{text-decoration:underline dotted}
 .kpi.geplant{border-left:3px dashed var(--plan)}
 .kpi.geplant .v,.kpi.unbekannt .v{color:var(--ink-3)}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px}

@@ -113,7 +113,7 @@ Pausen bleiben als Lücke sichtbar. Ein stufenloser Schieberegler (1 min – 30 
 
 **Meldungen** (je Reiter, seit 22.10.2026): Qualitätsmeldungen des Normalizers und Verbindungsabbrüche der letzten
 7 Tage, gleiche zusammengefasst. Status (offen / in Arbeit / erledigt), Wichtigkeit (kritisch / unkritisch) und Notiz
-sind im Leitstand änderbar; gespeichert in `data/leitstand/meldungen.sqlite` (mit Änderungsjournal, wird gesichert).
+sind im Leitstand änderbar; gespeichert in `data/leitstand/meldungen.sqlite` (mit Änderungsjournal, wird gesichert). Im Reiter „Regelung WP“ steht die Liste nicht mehr unten auf der Seite: die Kachel **„Offene Störungen“** (Anzahl nicht erledigter Meldungen, rot bei kritischen) öffnet sie als Fenster (seit 24.10.2026; dafür entfiel die ungenutzte Kachel „Leistungsbegrenzung § 14a“).
 Eine erledigte Meldung, die erneut auftritt, steht automatisch wieder auf „offen“. Das ist der einzige schreibende
 Pfad des Leitstands (nur JSON von der eigenen Herkunft, kein Gerätezugriff).
 
