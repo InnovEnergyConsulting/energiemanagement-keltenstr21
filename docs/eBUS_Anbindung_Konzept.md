@@ -90,6 +90,21 @@ wird nach dessen Werten abgerechnet und mit eBUS nur noch aufgeteilt.
 Leitstand „Regelung WP“: Verbrauch Heizung/Warmwasser aus eBUS, **Wärmeertrag und Arbeitszahl** (Heizen/Warmwasser,
 Monat/Jahr), Vorlauf Ist/Soll, Volumenstrom, Verdichterstarts je Tag (Takten sichtbar).
 
+**Anlagenschaltbild (Idee 24.10.2026):** Mit eBUS lohnt sich im Reiter „Regelung WP“ ein vereinfachtes Hydraulikschema
+(Stil wie der übrige Leitstand: grau im Normalbetrieb, Farbe nur bei Abweichung), auf dem die Messstellen live stehen:
+
+| Anlagenteil | Werte im Schema (Quelle) |
+|---|---|
+| Außeneinheit aroTHERM plus | Verdichter an/aus, Auslastung, Starts heute, Leistung elektrisch/thermisch, Außentemperatur (eBUS/EEBUS) |
+| Hydraulik Inneneinheit | Vorlauf Ist/Soll, Rücklauf, Volumenstrom, Anlagendruck, Umschaltung Heizen/Warmwasser (eBUS) |
+| Warmwasserspeicher | Ist/Soll, Ladung aktiv (EEBUS/eBUS) |
+| Heizkreis → FB-Verteiler | Vorlauf, Rücklauf je Kreis, Ventilöffnung je Raum (Controme, vorhanden) |
+| Hausanschluss / WP-Zähler | Netzbezug, WP-Verbrauch (WattWächter, künftiger WP-Zähler) |
+
+Fließrichtung und Pumpe nur hervorgehoben, wenn tatsächlich Volumenstrom gemessen wird; Klick auf eine Messstelle öffnet
+deren Verlauf. Welche Werte die Anlage wirklich liefert (z. B. Stellung des Umschaltventils), klärt erst der Scan (Kap. 7,
+Schritt 3) – das Schema wird danach entworfen, nicht vorher.
+
 ## 7. Inbetriebnahme
 
 1. Adapter beschaffen (C6, Netzteil, ggf. Gehäuse/LAN-Modul); WLAN am Aufstellort prüfen.
